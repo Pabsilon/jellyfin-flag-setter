@@ -12,7 +12,7 @@ widthfolder=$(exiftool -f -s3 -"ImageWidth" "$flink")
 widthposter=$(expr $widthfolder / 5)
 
 # Directory containing flag images
-flag_dir="/mnt/temp2/flags"
+flag_dir="/mnt/temp2/flags/flags"
 temp_flag_dir="/mnt/temp2/flags/tmp"
 
 # Create temp directory for resized flags
