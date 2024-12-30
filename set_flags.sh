@@ -24,7 +24,12 @@ case $1 in
 
   *fr*)
     convert /mnt/temp2/flags/fr.png -resize "$widthposter" /mnt/temp2/flags/fr_tmp.png
+  ;;&
+
+  *it*)
+    convert /mnt/temp2/flags/it.png -resize "$widthposter" /mnt/temp2/flags/it_tmp.png
   ;;
+
 
 esac
 
