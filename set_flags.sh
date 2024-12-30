@@ -1,41 +1,58 @@
 #!/bin/bash
+
+# Exit if no input parameter is provided
+if [ -z "$1" ]; then
+  echo "No language parameter provided. Exiting."
+  exit 1
+fi
+
 flink=$(readlink -f folder.jpg)
-creatortool=$( exiftool -f -s3 -"creatortool" "$flink")
-widthfolder=$( exiftool -f -s3 -"ImageWidth" "$flink" )
+creatortool=$(exiftool -f -s3 -"creatortool" "$flink")
+widthfolder=$(exiftool -f -s3 -"ImageWidth" "$flink")
 widthposter=$(expr $widthfolder / 5)
 
-case $1 in
+# Directory containing flag images
+flag_dir="/mnt/temp2/flags"
+temp_flag_dir="/mnt/temp2/flags/tmp"
 
-  *es*)
-    convert /mnt/temp2/flags/es.png -resize "$widthposter" /mnt/temp2/flags/es_tmp.png
-  ;;&
+# Create temp directory for resized flags
+mkdir -p "$temp_flag_dir"
 
-  *gb*)
-    convert /mnt/temp2/flags/gb.png -resize "$widthposter" /mnt/temp2/flags/gb_tmp.png
-  ;;&
+# Split input parameter into an array (assuming input is separated by underscores "_")
+IFS="_" read -r -a input_flags <<< "$1"
 
-  *jp*)
-    convert /mnt/temp2/flags/jp.png -resize "$widthposter" /mnt/temp2/flags/jp_tmp.png
-  ;;&
+# Process flags in the input order
+for flag_code in "${input_flags[@]}"; do
+  flag_path="$flag_dir/$flag_code.png"
 
-  *de*)
-    convert /mnt/temp2/flags/de.png -resize "$widthposter" /mnt/temp2/flags/de_tmp.png
-  ;;&
+  # Check if the flag image exists
+  if [ -f "$flag_path" ]; then
+    # Resize the flag and save to temp directory
+    convert "$flag_path" -resize "$widthposter" "$temp_flag_dir/${flag_code}_tmp.png"
+  else
+    echo "Flag image for '$flag_code' not found. Skipping."
+  fi
+done
 
-  *fr*)
-    convert /mnt/temp2/flags/fr.png -resize "$widthposter" /mnt/temp2/flags/fr_tmp.png
-  ;;&
+# Check if any temporary flag files exist
+if [ -z "$(ls -A "$temp_flag_dir" 2>/dev/null)" ]; then
+  echo "No matching flags found. Exiting."
+  rm -rf "$temp_flag_dir"
+  exit 1
+fi
 
-  *it*)
-    convert /mnt/temp2/flags/it.png -resize "$widthposter" /mnt/temp2/flags/it_tmp.png
-  ;;
+# Create montage of resized flags in the order of input
+montage "$temp_flag_dir"/*_tmp.png -geometry +8+8 -tile 1x4 -background transparent "$temp_flag_dir/test.png"
 
+# Overlay montage onto the original image
+convert "$flink" "$temp_flag_dir/test.png" -flatten "$flink"
 
-esac
-
-montage /mnt/temp2/flags/*_tmp.png -geometry +8+8 -tile 1x4 -background transparent /mnt/temp2/flags/test.png
-convert  "$flink"  /mnt/temp2/flags/test.png -flatten  "$flink"
+# Set file permissions and metadata to avoid re-writing
 chmod +644 "$flink"
 chown nobody "$flink"
 exiftool -creatortool="993" -overwrite_original "$flink"
-rm /mnt/temp2/flags/*_tmp.png
+
+# Clean up temporary files
+rm -rf "$temp_flag_dir"
+
+echo "Flags added successfully"
