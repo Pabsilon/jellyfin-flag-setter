@@ -32,5 +32,12 @@ def languages_to_flags(language_codes: list[str]) -> list[str]:
     return priority + rest
 
 
+KNOWN_FLAGS: list[str] = list(
+    dict.fromkeys(PRIORITY_FLAGS + list(LANGUAGE_TO_FLAG.values()))
+)
+
+ALL_FLAGS: list[str] = sorted(p.stem for p in FLAGS_DIR.glob("*.png"))
+
+
 def flag_path(flag_code: str) -> Path:
     return FLAGS_DIR / f"{flag_code}.png"

@@ -48,9 +48,9 @@ def compose_flags(poster_bytes: bytes, flag_codes: list[str]) -> bytes:
                 strip.composite(flag, left=0, top=y)
                 y += flag.height + FLAG_PADDING
 
-            # Place strip in the bottom-left corner with padding
+            # Place strip in the top-left corner with padding
             left = FLAG_PADDING
-            top = poster.height - strip_height - FLAG_PADDING
+            top = FLAG_PADDING
             poster.composite(strip, left=left, top=top)
 
         for flag in resized_flags:
