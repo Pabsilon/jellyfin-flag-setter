@@ -4,14 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jellyfin Flag Setter</title>
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <h1>Recently Added Movies</h1>
-  <ul>
+  <ul class="movie-list">
     {% for movie in movies %}
     <li>
       <a href="/movie/{{ movie.id }}">{{ movie.name }} ({{ movie.production_year }})</a>
-      — audio: {{ movie.media_streams | selectattr("type", "equalto", "Audio") | map(attribute="language") | list | join(", ") }}
+      <span class="meta">audio: {{ movie.media_streams | selectattr("type", "equalto", "Audio") | map(attribute="language") | list | join(", ") }}</span>
     </li>
     {% endfor %}
   </ul>
