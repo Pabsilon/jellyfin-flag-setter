@@ -1,7 +1,12 @@
 # Jellyfin Flag Setter
 
-This a  quickly hacked together script to set flags in jellyfin posters.
+This is a _very_ work in progress and experimental project for setting flags to jellyfin posters.
 
+
+
+
+# OLD VERSION - Script only
+Check the `old` branch for the old script.
 ## Requirements:
 
 libimage-exiftool-perl
