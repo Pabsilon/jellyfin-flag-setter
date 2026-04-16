@@ -1,3 +1,5 @@
+import base64
+
 import httpx
 
 from jellyfin_flag_setter.config import settings
@@ -13,14 +15,25 @@ class JellyfinClient:
                 f'Token="{settings.jellyfin_api_key}"'
             },
         )
+        self._user_id: str | None = None
+
+    async def _get_user_id(self) -> str:
+        if self._user_id is None:
+            response = await self._http.get("/Users")
+            response.raise_for_status()
+            users = response.json()
+            self._user_id = users[0]["Id"]
+        return self._user_id
 
     async def aclose(self) -> None:
         await self._http.aclose()
 
     async def get_recent_movies(self) -> list[MovieItem]:
+        user_id = await self._get_user_id()
         response = await self._http.get(
             "/Items",
             params={
+                "userId": user_id,
                 "IncludeItemTypes": "Movie",
                 "SortBy": "DateCreated",
                 "SortOrder": "Descending",
@@ -37,9 +50,10 @@ class JellyfinClient:
         return data.items
 
     async def get_movie(self, item_id: str) -> MovieItem:
+        user_id = await self._get_user_id()
         response = await self._http.get(
             f"/Items/{item_id}",
-            params={"Fields": "MediaStreams"},
+            params={"userId": user_id, "Fields": "MediaStreams"},
         )
         response.raise_for_status()
         return MovieItem.model_validate_json(response.content, strict=False)
@@ -54,7 +68,7 @@ class JellyfinClient:
     ) -> None:
         response = await self._http.post(
             f"/Items/{item_id}/Images/Primary",
-            content=image_data,
+            content=base64.b64encode(image_data),
             headers={"Content-Type": content_type},
         )
         response.raise_for_status()
