@@ -14,6 +14,7 @@ class JellyfinClient:
                 "X-Emby-Authorization": f"MediaBrowser "
                 f'Token="{settings.jellyfin_api_key}"'
             },
+            timeout=30.0,
         )
         self._user_id: str | None = None
 
@@ -28,16 +29,15 @@ class JellyfinClient:
     async def aclose(self) -> None:
         await self._http.aclose()
 
-    async def get_recent_movies(self) -> list[MovieItem]:
+    async def get_all_movies(self) -> list[MovieItem]:
         user_id = await self._get_user_id()
         response = await self._http.get(
             "/Items",
             params={
                 "userId": user_id,
                 "IncludeItemTypes": "Movie",
-                "SortBy": "DateCreated",
-                "SortOrder": "Descending",
-                "Limit": settings.recent_movies_limit,
+                "SortBy": "SortName",
+                "SortOrder": "Ascending",
                 "Recursive": "true",
                 "Fields": "MediaStreams",
             },

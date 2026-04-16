@@ -6,7 +6,6 @@ class Settings(BaseSettings):
 
     jellyfin_url: str = ""
     jellyfin_api_key: str = ""
-    recent_movies_limit: int = 20
 
 
 settings = Settings()  # type: ignore[missing-argument]

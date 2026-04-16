@@ -230,6 +230,21 @@ figure img {
   width: auto;
 }
 
+/* ── Warning banner ── */
+.warning-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: #3b2a00;
+  border: 1px solid #7a5500;
+  border-radius: var(--radius);
+  padding: 0.65rem 1rem;
+  margin-bottom: 1rem;
+  color: #f0c040;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
 /* ── Apply form ── */
 .apply-bar {
   display: flex;

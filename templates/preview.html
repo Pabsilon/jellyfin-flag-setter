@@ -9,6 +9,13 @@
 <body>
   <a class="back-link" href="/">← Back to list</a>
 
+  {% if already_edited %}
+  <div class="warning-banner">
+    This poster has already been edited.
+    {% if next_id %}<a href="/movie/{{ next_id }}" class="btn btn-secondary">Skip</a>{% endif %}
+  </div>
+  {% endif %}
+
   <h1>{{ movie.name }} ({{ movie.production_year }})</h1>
 
   <h2>Audio tracks</h2>
