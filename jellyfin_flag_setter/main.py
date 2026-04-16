@@ -2,6 +2,7 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 
 from fastapi import FastAPI, Form, Query, Request
 from fastapi.responses import RedirectResponse, Response
@@ -17,25 +18,63 @@ from jellyfin_flag_setter.flags.mapping import (
 from jellyfin_flag_setter.jellyfin.client import JellyfinClient
 from jellyfin_flag_setter.jellyfin.models import MovieItem
 
-_MOVIE_REFRESH_INTERVAL = 3600  # seconds
+_LIBRARY_REFRESH_INTERVAL = 3600  # seconds
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class LibraryWithItems:
+    id: str
+    name: str
+    collection_type: str | None
+    items: list[MovieItem] = field(default_factory=list)
+
+
+_COLLECTION_TYPE_MAP = {
+    "movies": "Movie",
+    "tvshows": "Series",
+}
+
+
+async def _load_libraries(client: JellyfinClient) -> list[LibraryWithItems]:
+    libraries = await client.get_libraries()
+    items_per_library = await asyncio.gather(
+        *(
+            client.get_library_items(
+                lib.id, _COLLECTION_TYPE_MAP.get(lib.collection_type or "", "Movie")
+            )
+            for lib in libraries
+        )
+    )
+    return [
+        LibraryWithItems(
+            id=lib.id, name=lib.name, collection_type=lib.collection_type, items=items
+        )
+        for lib, items in zip(libraries, items_per_library)
+    ]
 
 
 async def _refresh_loop(app: FastAPI) -> None:
     while True:
-        await asyncio.sleep(_MOVIE_REFRESH_INTERVAL)
+        await asyncio.sleep(_LIBRARY_REFRESH_INTERVAL)
         try:
-            app.state.movies = await app.state.jellyfin.get_all_movies()
-            logger.info("Refreshed movie list (%d movies)", len(app.state.movies))
+            app.state.libraries = await _load_libraries(app.state.jellyfin)
+            total = sum(len(lib.items) for lib in app.state.libraries)
+            logger.info(
+                "Refreshed libraries (%d items across %d libraries)",
+                total,
+                len(app.state.libraries),
+            )
         except Exception:
-            logger.exception("Failed to refresh movie list")
+            logger.exception("Failed to refresh libraries")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.jellyfin = JellyfinClient()
-    app.state.movies = await app.state.jellyfin.get_all_movies()
-    logger.info("Loaded %d movies", len(app.state.movies))
+    app.state.libraries = await _load_libraries(app.state.jellyfin)
+    total = sum(len(lib.items) for lib in app.state.libraries)
+    logger.info("Loaded %d items across %d libraries", total, len(app.state.libraries))
     refresh_task = asyncio.create_task(_refresh_loop(app))
     yield
     refresh_task.cancel()
@@ -51,8 +90,12 @@ def _get_client(request: Request) -> JellyfinClient:
     return request.app.state.jellyfin
 
 
+def _get_libraries(request: Request) -> list[LibraryWithItems]:
+    return request.app.state.libraries
+
+
 def _get_movies(request: Request) -> list[MovieItem]:
-    return request.app.state.movies
+    return [item for lib in _get_libraries(request) for item in lib.items]
 
 
 def _audio_languages(movie) -> list[str]:
@@ -62,7 +105,7 @@ def _audio_languages(movie) -> list[str]:
 @app.get("/")
 async def index(request: Request):
     return templates.TemplateResponse(
-        request, "index.html", {"movies": _get_movies(request)}
+        request, "index.html", {"libraries": _get_libraries(request)}
     )
 
 

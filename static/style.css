@@ -47,6 +47,44 @@ h2 {
   letter-spacing: 0.06em;
 }
 
+/* ── Library sections ── */
+details {
+  margin-bottom: 1.5rem;
+}
+details > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text);
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+  user-select: none;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before {
+  content: '▶';
+  font-size: 0.65em;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+details[open] > summary::before {
+  transform: rotate(90deg);
+}
+.empty-library {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  padding: 0.4rem 0 0 1.2rem;
+  margin: 0;
+}
+
 /* ── Movie list (index) ── */
 ul.movie-list {
   list-style: none;

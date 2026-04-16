@@ -7,14 +7,23 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <h1>All Movies</h1>
-  <ul class="movie-list">
-    {% for movie in movies %}
-    <li>
-      <a href="/movie/{{ movie.id }}">{{ movie.name }} ({{ movie.production_year }})</a>
-      <span class="meta">audio: {{ movie.media_streams | selectattr("type", "equalto", "Audio") | map(attribute="language") | list | join(", ") }}</span>
-    </li>
-    {% endfor %}
-  </ul>
+  <h1>Library</h1>
+  {% for library in libraries %}
+  <details>
+    <summary>{{ library.name }} <span class="meta">({{ library.items | length }})</span></summary>
+    {% if library.items %}
+    <ul class="movie-list">
+      {% for movie in library.items %}
+      <li>
+        <a href="/movie/{{ movie.id }}">{{ movie.name }} ({{ movie.production_year }})</a>
+        <span class="meta">audio: {{ movie.media_streams | selectattr("type", "equalto", "Audio") | map(attribute="language") | list | join(", ") }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="empty-library">No supported items in this library yet.</p>
+    {% endif %}
+  </details>
+  {% endfor %}
 </body>
 </html>

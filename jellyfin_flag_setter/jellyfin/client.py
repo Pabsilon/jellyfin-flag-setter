@@ -3,7 +3,12 @@ import base64
 import httpx
 
 from jellyfin_flag_setter.config import settings
-from jellyfin_flag_setter.jellyfin.models import MovieItem, RecentItemsResponse
+from jellyfin_flag_setter.jellyfin.models import (
+    ItemsResponse,
+    LibrariesResponse,
+    LibraryItem,
+    MovieItem,
+)
 
 
 class JellyfinClient:
@@ -29,13 +34,24 @@ class JellyfinClient:
     async def aclose(self) -> None:
         await self._http.aclose()
 
-    async def get_all_movies(self) -> list[MovieItem]:
+    async def get_libraries(self) -> list[LibraryItem]:
+        user_id = await self._get_user_id()
+        response = await self._http.get(f"/Users/{user_id}/Views")
+        response.raise_for_status()
+        return LibrariesResponse.model_validate_json(
+            response.content, strict=False
+        ).items
+
+    async def get_library_items(
+        self, library_id: str, item_types: str = "Movie"
+    ) -> list[MovieItem]:
         user_id = await self._get_user_id()
         response = await self._http.get(
             "/Items",
             params={
                 "userId": user_id,
-                "IncludeItemTypes": "Movie",
+                "parentId": library_id,
+                "IncludeItemTypes": item_types,
                 "SortBy": "SortName",
                 "SortOrder": "Ascending",
                 "Recursive": "true",
@@ -43,11 +59,7 @@ class JellyfinClient:
             },
         )
         response.raise_for_status()
-        data = RecentItemsResponse.model_validate_json(
-            response.content,
-            strict=False,
-        )
-        return data.items
+        return ItemsResponse.model_validate_json(response.content, strict=False).items
 
     async def get_movie(self, item_id: str) -> MovieItem:
         user_id = await self._get_user_id()
