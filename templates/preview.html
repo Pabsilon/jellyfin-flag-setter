@@ -4,9 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ movie.name }} — Flag Setter</title>
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <p><a href="/">← Back to list</a></p>
+  <a class="back-link" href="/">← Back to list</a>
 
   <h1>{{ movie.name }} ({{ movie.production_year }})</h1>
 
@@ -38,15 +39,15 @@
       {% endfor %}
     </div>
 
-    <div style="margin-top: 0.75rem;">
+    <div class="search-row">
       <input id="flag-search" type="search" placeholder="Search flag…" autocomplete="off">
-      <ul id="flag-results" style="list-style:none; padding:0; margin:0;"></ul>
+      <ul id="flag-results"></ul>
     </div>
 
-    <button type="button" onclick="refreshPreview()" style="margin-top: 0.75rem;">Refresh preview</button>
+    <button type="button" onclick="refreshPreview()" style="margin-top: 0.9rem;">Refresh preview</button>
   </form>
 
-  <div style="display: flex; gap: 2rem; margin-top: 1rem;">
+  <div class="poster-row">
     <figure>
       <figcaption>Current poster</figcaption>
       <img src="/movie/{{ movie.id }}/poster/original" alt="Original poster" height="400">
@@ -60,11 +61,13 @@
     </figure>
   </div>
 
-  <form method="post" action="/movie/{{ movie.id }}/apply" style="margin-top: 1rem;">
+  <form method="post" action="/movie/{{ movie.id }}/apply">
     {% if next_id %}<input type="hidden" name="next_id" value="{{ next_id }}">{% endif %}
     <div id="apply-flags"></div>
-    <button type="submit" id="apply-btn">Apply</button>
-    <a href="/">Cancel</a>
+    <div class="apply-bar">
+      <button type="submit" id="apply-btn">Apply</button>
+      <a href="/" class="btn btn-secondary">Cancel</a>
+    </div>
   </form>
 
   <script>
@@ -88,7 +91,6 @@
     }
 
     function addFlag(code) {
-      // If already present, just check it
       const existing = document.querySelector(`#flag-form input[value="${code}"]`);
       if (existing) {
         existing.checked = true;
