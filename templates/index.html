@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jellyfin Flag Setter</title>
+</head>
+<body>
+  <h1>Recently Added Movies</h1>
+  <ul>
+    {% for movie in movies %}
+    <li>
+      {{ movie.name }} ({{ movie.production_year }})
+      — audio: {{ movie.media_streams | selectattr("type", "equalto", "Audio") | map(attribute="language") | list | join(", ") }}
+    </li>
+    {% endfor %}
+  </ul>
+</body>
+</html>
