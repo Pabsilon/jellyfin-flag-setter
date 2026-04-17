@@ -7,6 +7,15 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+  <nav class="nav-bar">
+    <a href="/" class="nav-brand">Jellyfin Flag Setter</a>
+    <div class="nav-actions">
+      <span class="nav-user">{{ user.username }}</span>
+      <a href="/settings" class="btn btn-secondary btn-sm">Settings</a>
+      <a href="/logout" class="btn btn-secondary btn-sm">Logout</a>
+    </div>
+  </nav>
+
   <a class="back-link" href="/">← Back to list</a>
 
   {% if already_edited %}

@@ -6,6 +6,8 @@ class Settings(BaseSettings):
 
     jellyfin_url: str = ""
     jellyfin_api_key: str = ""
+    secret_key: str = ""
+    db_path: str = "data/flagsetter.db"
 
 
 settings = Settings()  # type: ignore[missing-argument]

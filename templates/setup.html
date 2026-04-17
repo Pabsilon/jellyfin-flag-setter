@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Setup — Jellyfin Flag Setter</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <h1>Create Admin Account</h1>
+      <p class="auth-hint">First-time setup — create your admin account to get started.</p>
+      {% if error %}
+      <div class="form-error">{{ error }}</div>
+      {% endif %}
+      <form method="post" action="/setup">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input id="username" name="username" type="text" autocomplete="username" autofocus required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="new-password" required>
+        </div>
+        <div class="form-group">
+          <label for="password_confirm">Confirm Password</label>
+          <input id="password_confirm" name="password_confirm" type="password" autocomplete="new-password" required>
+        </div>
+        <button type="submit" class="form-submit">Create account</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

@@ -290,3 +290,109 @@ figure img {
   gap: 1rem;
   margin-top: 1.25rem;
 }
+
+/* ── Nav bar ── */
+.nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.nav-brand {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text);
+}
+.nav-brand:hover { color: var(--accent); text-decoration: none; }
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.nav-user {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.btn-sm {
+  padding: 0.35rem 0.9rem;
+  font-size: 0.825rem;
+}
+
+/* ── Auth pages ── */
+.auth-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin: -1.5rem -2rem;
+  padding: 2rem;
+}
+.auth-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2rem;
+  width: 100%;
+  max-width: 380px;
+}
+.auth-card h1 {
+  font-size: 1.3rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+.auth-hint {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin: -0.75rem 0 1.25rem;
+  text-align: center;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+.form-group label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.form-group input {
+  padding: 0.55rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.form-group input:focus { border-color: var(--accent); }
+.form-error {
+  background: #3b1010;
+  border: 1px solid #7a2020;
+  color: #f08080;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+.form-success {
+  background: #0e3b1e;
+  border: 1px solid #1a7a3a;
+  color: #6fe09a;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+.form-submit {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+.settings-form {
+  max-width: 420px;
+}
