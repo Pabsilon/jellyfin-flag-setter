@@ -3,10 +3,20 @@ from wand.image import Image
 
 from jellyfin_flag_setter.flags.mapping import flag_path
 
-# Padding between flags and from the edge of the poster, in pixels
 FLAG_PADDING = 8
-# Flags are sized relative to poster width (same ratio as the original script)
 FLAG_WIDTH_RATIO = 5
+_EDITED_MARKER = "flagsetter:edited"
+
+
+def is_edited(image_bytes: bytes) -> bool:
+    with Image(blob=image_bytes) as img:
+        return img.metadata.get("comment") == _EDITED_MARKER
+
+
+def mark_as_edited(image_bytes: bytes) -> bytes:
+    with Image(blob=image_bytes) as img:
+        img.metadata["comment"] = _EDITED_MARKER
+        return img.make_blob("jpeg")
 
 
 def compose_flags(poster_bytes: bytes, flag_codes: list[str]) -> bytes:

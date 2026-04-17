@@ -20,8 +20,22 @@ class MovieItem(BaseModel):
     media_streams: list[MediaStream] = []
 
 
-class RecentItemsResponse(BaseModel):
+class ItemsResponse(BaseModel):
     model_config = ConfigDict(alias_generator=to_pascal, populate_by_name=True)
 
     items: list[MovieItem]
     total_record_count: int
+
+
+class LibraryItem(BaseModel):
+    model_config = ConfigDict(alias_generator=to_pascal, populate_by_name=True)
+
+    id: str
+    name: str
+    collection_type: str | None = None
+
+
+class LibrariesResponse(BaseModel):
+    model_config = ConfigDict(alias_generator=to_pascal, populate_by_name=True)
+
+    items: list[LibraryItem]

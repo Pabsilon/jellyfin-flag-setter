@@ -1,25 +1,83 @@
 import asyncio
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from dataclasses import dataclass, field
 
 from fastapi import FastAPI, Form, Query, Request
 from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from jellyfin_flag_setter.flags.composer import compose_flags
+from jellyfin_flag_setter.flags.composer import compose_flags, is_edited, mark_as_edited
 from jellyfin_flag_setter.flags.mapping import (
     ALL_FLAGS,
     KNOWN_FLAGS,
     languages_to_flags,
 )
 from jellyfin_flag_setter.jellyfin.client import JellyfinClient
+from jellyfin_flag_setter.jellyfin.models import MovieItem
+
+_LIBRARY_REFRESH_INTERVAL = 3600  # seconds
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class LibraryWithItems:
+    id: str
+    name: str
+    collection_type: str | None
+    items: list[MovieItem] = field(default_factory=list)
+
+
+_COLLECTION_TYPE_MAP = {
+    "movies": "Movie",
+    "tvshows": "Series",
+}
+
+
+async def _load_libraries(client: JellyfinClient) -> list[LibraryWithItems]:
+    libraries = await client.get_libraries()
+    items_per_library = await asyncio.gather(
+        *(
+            client.get_library_items(
+                lib.id, _COLLECTION_TYPE_MAP.get(lib.collection_type or "", "Movie")
+            )
+            for lib in libraries
+        )
+    )
+    return [
+        LibraryWithItems(
+            id=lib.id, name=lib.name, collection_type=lib.collection_type, items=items
+        )
+        for lib, items in zip(libraries, items_per_library)
+    ]
+
+
+async def _refresh_loop(app: FastAPI) -> None:
+    while True:
+        await asyncio.sleep(_LIBRARY_REFRESH_INTERVAL)
+        try:
+            app.state.libraries = await _load_libraries(app.state.jellyfin)
+            total = sum(len(lib.items) for lib in app.state.libraries)
+            logger.info(
+                "Refreshed libraries (%d items across %d libraries)",
+                total,
+                len(app.state.libraries),
+            )
+        except Exception:
+            logger.exception("Failed to refresh libraries")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.jellyfin = JellyfinClient()
+    app.state.libraries = await _load_libraries(app.state.jellyfin)
+    total = sum(len(lib.items) for lib in app.state.libraries)
+    logger.info("Loaded %d items across %d libraries", total, len(app.state.libraries))
+    refresh_task = asyncio.create_task(_refresh_loop(app))
     yield
+    refresh_task.cancel()
     await app.state.jellyfin.aclose()
 
 
@@ -32,24 +90,33 @@ def _get_client(request: Request) -> JellyfinClient:
     return request.app.state.jellyfin
 
 
+def _get_libraries(request: Request) -> list[LibraryWithItems]:
+    return request.app.state.libraries
+
+
+def _get_movies(request: Request) -> list[MovieItem]:
+    return [item for lib in _get_libraries(request) for item in lib.items]
+
+
 def _audio_languages(movie) -> list[str]:
     return [s.language for s in movie.media_streams if s.type == "Audio" and s.language]
 
 
 @app.get("/")
 async def index(request: Request):
-    movies = await _get_client(request).get_recent_movies()
-    return templates.TemplateResponse(request, "index.html", {"movies": movies})
+    return templates.TemplateResponse(
+        request, "index.html", {"libraries": _get_libraries(request)}
+    )
 
 
 @app.get("/movie/{item_id}")
 async def movie_preview(request: Request, item_id: str):
     client = _get_client(request)
-    movie, all_movies = await asyncio.gather(
+    movie, poster = await asyncio.gather(
         client.get_movie(item_id),
-        client.get_recent_movies(),
+        client.get_poster(item_id),
     )
-    ids = [m.id for m in all_movies]
+    ids = [m.id for m in _get_movies(request)]
     try:
         idx = ids.index(item_id)
         next_id = ids[idx + 1] if idx + 1 < len(ids) else None
@@ -70,6 +137,7 @@ async def movie_preview(request: Request, item_id: str):
             "all_flags": ALL_FLAGS,
             "preview_qs": preview_qs,
             "next_id": next_id,
+            "already_edited": is_edited(poster),
         },
     )
 
@@ -98,7 +166,7 @@ async def apply_flags(
 ):
     client = _get_client(request)
     poster = await client.get_poster(item_id)
-    composed = compose_flags(poster, flags)
+    composed = mark_as_edited(compose_flags(poster, flags))
     await client.upload_poster(item_id, composed)
     redirect_url = f"/movie/{next_id}" if next_id else "/"
     return RedirectResponse(url=redirect_url, status_code=303)
