@@ -1,14 +1,25 @@
 import asyncio
 import logging
+import secrets
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 
-from fastapi import FastAPI, Form, Query, Request
+from fastapi import Depends, FastAPI, Form, Query, Request
 from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.sessions import SessionMiddleware
 
+from jellyfin_flag_setter.auth.db import create_tables
+from jellyfin_flag_setter.auth.dependencies import (
+    RequiresLogin,
+    RequiresSetup,
+    get_current_user,
+)
+from jellyfin_flag_setter.auth.models import User
+from jellyfin_flag_setter.auth.router import router as auth_router
+from jellyfin_flag_setter.config import settings
 from jellyfin_flag_setter.flags.composer import compose_flags, is_edited, mark_as_edited
 from jellyfin_flag_setter.flags.mapping import (
     ALL_FLAGS,
@@ -71,6 +82,7 @@ async def _refresh_loop(app: FastAPI) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    create_tables()
     app.state.jellyfin = JellyfinClient()
     app.state.libraries = await _load_libraries(app.state.jellyfin)
     total = sum(len(lib.items) for lib in app.state.libraries)
@@ -82,8 +94,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 
 app = FastAPI(title="Jellyfin Flag Setter", lifespan=lifespan)
+
+_secret_key = settings.secret_key or secrets.token_hex(32)
+if not settings.secret_key:
+    logger.warning("SECRET_KEY not set — sessions will not persist across restarts")
+app.add_middleware(SessionMiddleware, secret_key=_secret_key)
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.include_router(auth_router)
 templates = Jinja2Templates(directory="templates")
+
+
+@app.exception_handler(RequiresLogin)
+async def _requires_login(request: Request, exc: RequiresLogin):
+    return RedirectResponse("/login", status_code=302)
+
+
+@app.exception_handler(RequiresSetup)
+async def _requires_setup(request: Request, exc: RequiresSetup):
+    return RedirectResponse("/setup", status_code=302)
 
 
 def _get_client(request: Request) -> JellyfinClient:
@@ -103,14 +132,18 @@ def _audio_languages(movie) -> list[str]:
 
 
 @app.get("/")
-async def index(request: Request):
+async def index(request: Request, current_user: User = Depends(get_current_user)):
     return templates.TemplateResponse(
-        request, "index.html", {"libraries": _get_libraries(request)}
+        request,
+        "index.html",
+        {"libraries": _get_libraries(request), "user": current_user},
     )
 
 
 @app.get("/movie/{item_id}")
-async def movie_preview(request: Request, item_id: str):
+async def movie_preview(
+    request: Request, item_id: str, current_user: User = Depends(get_current_user)
+):
     client = _get_client(request)
     movie, poster = await asyncio.gather(
         client.get_movie(item_id),
@@ -138,19 +171,25 @@ async def movie_preview(request: Request, item_id: str):
             "preview_qs": preview_qs,
             "next_id": next_id,
             "already_edited": is_edited(poster),
+            "user": current_user,
         },
     )
 
 
 @app.get("/movie/{item_id}/poster/original")
-async def poster_original(item_id: str, request: Request):
+async def poster_original(
+    item_id: str, request: Request, _: User = Depends(get_current_user)
+):
     data = await _get_client(request).get_poster(item_id)
     return Response(content=data, media_type="image/jpeg")
 
 
 @app.get("/movie/{item_id}/poster/preview")
 async def poster_preview(
-    item_id: str, request: Request, flags: list[str] = Query(default=[])
+    item_id: str,
+    request: Request,
+    flags: list[str] = Query(default=[]),
+    _: User = Depends(get_current_user),
 ):
     poster = await _get_client(request).get_poster(item_id)
     composed = compose_flags(poster, flags)
@@ -163,6 +202,7 @@ async def apply_flags(
     request: Request,
     flags: list[str] = Form(default=[]),
     next_id: str | None = Form(default=None),
+    _: User = Depends(get_current_user),
 ):
     client = _get_client(request)
     poster = await client.get_poster(item_id)
