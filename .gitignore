@@ -145,7 +145,8 @@ pip-selfcheck.json
 .idea/*.iml
 .idea/vcs.xml
 .idea/inspectionProfiles/profiles_settings.xml
-.idea/modules
+.idea/modules'
+.idea/*
 *.iml
 *.ipr
 
