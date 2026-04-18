@@ -18,18 +18,36 @@
 
   <h1>Library</h1>
   {% for library in libraries %}
+  {% set unedited = library.items | rejectattr("id", "in", library.edited_item_ids) | list %}
   <details>
     <summary>{{ library.name }} <span class="meta">({{ library.items | length }})</span></summary>
-    {% if library.items %}
+
+    {% if unedited %}
+    <h3>Not yet edited <span class="meta">({{ unedited | length }})</span></h3>
     <ul class="movie-list">
-      {% for movie in library.items %}
+      {% for movie in unedited %}
       <li>
         <a href="/movie/{{ movie.id }}">{{ movie.name }} ({{ movie.production_year }})</a>
         <span class="meta">audio: {{ movie.media_streams | selectattr("type", "equalto", "Audio") | map(attribute="language") | list | join(", ") }}</span>
       </li>
       {% endfor %}
     </ul>
-    {% else %}
+    {% endif %}
+
+    {% set edited = library.items | selectattr("id", "in", library.edited_item_ids) | list %}
+    {% if edited %}
+    <h3>Edited <span class="meta">({{ edited | length }})</span></h3>
+    <ul class="movie-list">
+      {% for movie in edited %}
+      <li>
+        <a href="/movie/{{ movie.id }}">{{ movie.name }} ({{ movie.production_year }})</a>
+        <span class="meta">audio: {{ movie.media_streams | selectattr("type", "equalto", "Audio") | map(attribute="language") | list | join(", ") }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if not library.items %}
     <p class="empty-library">No supported items in this library yet.</p>
     {% endif %}
   </details>
