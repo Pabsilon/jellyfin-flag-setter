@@ -149,6 +149,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 app = FastAPI(title="Jellyfin Flag Setter", lifespan=lifespan)
 
+
+def serve() -> None:
+    import uvicorn
+
+    uvicorn.run("jellyfin_flag_setter.main:app", reload=True)
+
+
 _secret_key = settings.secret_key or secrets.token_hex(32)
 if not settings.secret_key:
     logger.warning("SECRET_KEY not set — sessions will not persist across restarts")
