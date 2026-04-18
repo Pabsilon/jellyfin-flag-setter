@@ -3,15 +3,15 @@ import logging
 import secrets
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
 
 from fastapi import Depends, FastAPI, Form, Query, Request
 from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlmodel import Session
 from starlette.middleware.sessions import SessionMiddleware
 
-from jellyfin_flag_setter.auth.db import create_tables
+from jellyfin_flag_setter.auth.db import create_tables, get_engine
 from jellyfin_flag_setter.auth.dependencies import (
     RequiresLogin,
     RequiresSetup,
@@ -28,17 +28,15 @@ from jellyfin_flag_setter.flags.mapping import (
 )
 from jellyfin_flag_setter.jellyfin.client import JellyfinClient
 from jellyfin_flag_setter.jellyfin.models import MovieItem
+from jellyfin_flag_setter.sync.models import LibraryWithItems
+from jellyfin_flag_setter.sync.store import (
+    load_libraries,
+    mark_item_edited,
+    save_libraries,
+)
 
 _LIBRARY_REFRESH_INTERVAL = 3600  # seconds
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class LibraryWithItems:
-    id: str
-    name: str
-    collection_type: str | None
-    items: list[MovieItem] = field(default_factory=list)
 
 
 _COLLECTION_TYPE_MAP = {
@@ -65,16 +63,57 @@ async def _load_libraries(client: JellyfinClient) -> list[LibraryWithItems]:
     ]
 
 
+_POSTER_CHECK_CONCURRENCY = 10
+
+
+def _apply_edited_map(
+    libraries: list[LibraryWithItems], edited_map: dict[str, bool]
+) -> None:
+    for lib in libraries:
+        lib_ids = {i.id for i in lib.items}
+        lib.edited_item_ids = {k for k, v in edited_map.items() if v and k in lib_ids}
+
+
+async def _check_all_posters(
+    client: JellyfinClient, libraries: list[LibraryWithItems]
+) -> dict[str, bool]:
+    """Fetch all posters and return a map of item_id → is_edited."""
+    all_items = [item for lib in libraries for item in lib.items]
+    semaphore = asyncio.Semaphore(_POSTER_CHECK_CONCURRENCY)
+
+    async def check(item) -> tuple[str, bool]:
+        async with semaphore:
+            poster = await client.get_poster(item.id)
+            return item.id, is_edited(poster)
+
+    results = await asyncio.gather(
+        *[check(item) for item in all_items], return_exceptions=True
+    )
+    edited_map = {}
+    for result in results:
+        if isinstance(result, BaseException):
+            logger.warning("Failed to check poster: %s", result)
+        else:
+            item_id, edited = result
+            edited_map[item_id] = edited
+    return edited_map
+
+
 async def _refresh_loop(app: FastAPI) -> None:
     while True:
         await asyncio.sleep(_LIBRARY_REFRESH_INTERVAL)
         try:
-            app.state.libraries = await _load_libraries(app.state.jellyfin)
-            total = sum(len(lib.items) for lib in app.state.libraries)
+            libraries = await _load_libraries(app.state.jellyfin)
+            edited_map = await _check_all_posters(app.state.jellyfin, libraries)
+            _apply_edited_map(libraries, edited_map)
+            with Session(get_engine()) as session:
+                save_libraries(session, libraries)
+            app.state.libraries = libraries
+            total = sum(len(lib.items) for lib in libraries)
             logger.info(
                 "Refreshed libraries (%d items across %d libraries)",
                 total,
-                len(app.state.libraries),
+                len(libraries),
             )
         except Exception:
             logger.exception("Failed to refresh libraries")
@@ -84,9 +123,24 @@ async def _refresh_loop(app: FastAPI) -> None:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     create_tables()
     app.state.jellyfin = JellyfinClient()
-    app.state.libraries = await _load_libraries(app.state.jellyfin)
-    total = sum(len(lib.items) for lib in app.state.libraries)
-    logger.info("Loaded %d items across %d libraries", total, len(app.state.libraries))
+    with Session(get_engine()) as session:
+        libraries = load_libraries(session)
+    if libraries:
+        total = sum(len(lib.items) for lib in libraries)
+        logger.info(
+            "Loaded %d items from DB across %d libraries", total, len(libraries)
+        )
+    else:
+        libraries = await _load_libraries(app.state.jellyfin)
+        edited_map = await _check_all_posters(app.state.jellyfin, libraries)
+        _apply_edited_map(libraries, edited_map)
+        with Session(get_engine()) as session:
+            save_libraries(session, libraries)
+        total = sum(len(lib.items) for lib in libraries)
+        logger.info(
+            "Synced %d items from Jellyfin across %d libraries", total, len(libraries)
+        )
+    app.state.libraries = libraries
     refresh_task = asyncio.create_task(_refresh_loop(app))
     yield
     refresh_task.cancel()
@@ -208,5 +262,11 @@ async def apply_flags(
     poster = await client.get_poster(item_id)
     composed = mark_as_edited(compose_flags(poster, flags))
     await client.upload_poster(item_id, composed)
+    with Session(get_engine()) as session:
+        mark_item_edited(session, item_id)
+    for lib in _get_libraries(request):
+        if any(item.id == item_id for item in lib.items):
+            lib.edited_item_ids.add(item_id)
+            break
     redirect_url = f"/movie/{next_id}" if next_id else "/"
     return RedirectResponse(url=redirect_url, status_code=303)

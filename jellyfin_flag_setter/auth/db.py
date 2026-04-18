@@ -3,6 +3,7 @@ from pathlib import Path
 
 from sqlmodel import Session, SQLModel, create_engine
 
+import jellyfin_flag_setter.sync.models  # noqa: F401 — registers sync tables with SQLModel metadata
 from jellyfin_flag_setter.config import settings
 
 _engine = None
@@ -17,6 +18,10 @@ def _get_engine():
             f"sqlite:///{db_path}", connect_args={"check_same_thread": False}
         )
     return _engine
+
+
+def get_engine():
+    return _get_engine()
 
 
 def create_tables() -> None:
