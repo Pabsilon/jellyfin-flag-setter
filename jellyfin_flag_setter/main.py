@@ -226,7 +226,10 @@ async def library_view(
 
 @app.get("/movie/{item_id}")
 async def movie_preview(
-    request: Request, item_id: str, current_user: User = Depends(get_current_user)
+    request: Request,
+    item_id: str,
+    back: str = "/",
+    current_user: User = Depends(get_current_user),
 ):
     client = _get_client(request)
     movie, poster = await asyncio.gather(
@@ -255,6 +258,7 @@ async def movie_preview(
             "preview_qs": preview_qs,
             "next_id": next_id,
             "already_edited": is_edited(poster),
+            "back": back,
             "user": current_user,
         },
     )

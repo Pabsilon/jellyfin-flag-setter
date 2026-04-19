@@ -16,7 +16,7 @@
     </div>
   </nav>
 
-  <a class="back-link" href="/">← Back to list</a>
+  <a class="back-link" href="{{ back }}">← Back</a>
 
   {% if already_edited %}
   <div class="warning-banner">
@@ -82,7 +82,7 @@
     <div id="apply-flags"></div>
     <div class="apply-bar">
       <button type="submit" id="apply-btn">Apply</button>
-      <a href="/" class="btn btn-secondary">Cancel</a>
+      <a href="{{ back }}" class="btn btn-secondary">Cancel</a>
     </div>
   </form>
 
