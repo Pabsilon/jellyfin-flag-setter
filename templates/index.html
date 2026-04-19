@@ -16,41 +16,97 @@
     </div>
   </nav>
 
-  <h1>Library</h1>
+  <div class="index-toolbar">
+    <h1>Library</h1>
+    <label class="limit-control">
+      Show per library
+      <input id="limit-input" type="number" min="1" max="500" value="20">
+    </label>
+  </div>
+
   {% for library in libraries %}
   {% set unedited = library.items | rejectattr("id", "in", library.edited_item_ids) | list %}
-  <details>
-    <summary>{{ library.name }} <span class="meta">({{ library.items | length }})</span></summary>
+  {% set edited   = library.items | selectattr("id", "in", library.edited_item_ids) | list %}
+
+  <section class="library-section">
+    <div class="library-header">
+      <a href="/library/{{ library.id }}" class="library-name">{{ library.name }}</a>
+      <span class="library-stats">
+        {% if unedited %}
+          <span class="stat-unedited">{{ unedited | length }} unedited</span> /
+        {% else %}
+          <span class="stat-done">all done</span> /
+        {% endif %}
+        {{ library.items | length }} total
+      </span>
+    </div>
 
     {% if unedited %}
-    <h3>Not yet edited <span class="meta">({{ unedited | length }})</span></h3>
-    <ul class="movie-list">
+    <div class="poster-grid" data-library="{{ library.id }}">
       {% for movie in unedited %}
-      <li>
-        <a href="/movie/{{ movie.id }}">{{ movie.name }} ({{ movie.production_year }})</a>
-        <span class="meta">audio: {{ movie.media_streams | selectattr("type", "equalto", "Audio") | map(attribute="language") | list | join(", ") }}</span>
-      </li>
+      <a href="/movie/{{ movie.id }}" class="poster-card" data-pos="{{ loop.index0 }}">
+        <img data-src="/movie/{{ movie.id }}/poster/original" alt="{{ movie.name }}">
+        <span class="poster-title">{{ movie.name }} <span class="poster-year">({{ movie.production_year }})</span></span>
+      </a>
       {% endfor %}
-    </ul>
+    </div>
     {% endif %}
 
-    {% set edited = library.items | selectattr("id", "in", library.edited_item_ids) | list %}
     {% if edited %}
-    <h3>Edited <span class="meta">({{ edited | length }})</span></h3>
-    <ul class="movie-list">
-      {% for movie in edited %}
-      <li>
-        <a href="/movie/{{ movie.id }}">{{ movie.name }} ({{ movie.production_year }})</a>
-        <span class="meta">audio: {{ movie.media_streams | selectattr("type", "equalto", "Audio") | map(attribute="language") | list | join(", ") }}</span>
-      </li>
-      {% endfor %}
-    </ul>
+    <details class="edited-section">
+      <summary>{{ edited | length }} already edited</summary>
+      <div class="poster-grid poster-grid--edited">
+        {% for movie in edited %}
+        <a href="/movie/{{ movie.id }}" class="poster-card" data-pos="{{ loop.index0 }}">
+          <img data-src="/movie/{{ movie.id }}/poster/original" alt="{{ movie.name }}">
+          <span class="poster-title">{{ movie.name }} <span class="poster-year">({{ movie.production_year }})</span></span>
+        </a>
+        {% endfor %}
+      </div>
+    </details>
     {% endif %}
 
     {% if not library.items %}
     <p class="empty-library">No supported items in this library yet.</p>
     {% endif %}
-  </details>
+  </section>
   {% endfor %}
+
+  <script>
+    const input = document.getElementById('limit-input');
+    const STORAGE_KEY = 'posterLimit';
+
+    function loadImg(card) {
+      const img = card.querySelector('img');
+      if (img && img.dataset.src && !img.getAttribute('src')) img.src = img.dataset.src;
+    }
+
+    function applyLimit(limit) {
+      document.querySelectorAll('.poster-grid:not(.poster-grid--edited) .poster-card').forEach(card => {
+        const beyond = parseInt(card.dataset.pos, 10) >= limit;
+        card.hidden = beyond;
+        if (!beyond) loadImg(card);
+      });
+    }
+
+    // Load edited posters only when the <details> is opened
+    document.querySelectorAll('.edited-section').forEach(details => {
+      details.addEventListener('toggle', () => {
+        if (details.open) details.querySelectorAll('.poster-card').forEach(loadImg);
+      });
+    });
+
+    const saved = parseInt(localStorage.getItem(STORAGE_KEY), 10);
+    const initial = isNaN(saved) ? 20 : saved;
+    input.value = initial;
+    applyLimit(initial);
+
+    input.addEventListener('change', () => {
+      const val = Math.max(1, parseInt(input.value, 10) || 20);
+      input.value = val;
+      localStorage.setItem(STORAGE_KEY, val);
+      applyLimit(val);
+    });
+  </script>
 </body>
 </html>

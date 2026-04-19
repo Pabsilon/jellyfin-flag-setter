@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ library.name }} – Jellyfin Flag Setter</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <nav class="nav-bar">
+    <a href="/" class="nav-brand">Jellyfin Flag Setter</a>
+    <div class="nav-actions">
+      <span class="nav-user">{{ user.username }}</span>
+      <a href="/settings" class="btn btn-secondary btn-sm">Settings</a>
+      <a href="/logout" class="btn btn-secondary btn-sm">Logout</a>
+    </div>
+  </nav>
+
+  <a href="/" class="back-link">← All libraries</a>
+
+  <div class="index-toolbar">
+    <h1>{{ library.name }}</h1>
+    <span class="library-stats">
+      {% if unedited %}
+        <span class="stat-unedited">{{ unedited | length }} unedited</span> /
+      {% else %}
+        <span class="stat-done">all done</span> /
+      {% endif %}
+      {{ library.items | length }} total
+    </span>
+  </div>
+
+  <div class="lib-controls">
+    <span class="lib-page-info" id="page-info"></span>
+    <div class="lib-page-sizes">
+      <span class="lib-page-sizes-label">Per page</span>
+      {% for n in [10, 25, 100] %}
+      <button class="page-size-btn btn-secondary" data-size="{{ n }}">{{ n }}</button>
+      {% endfor %}
+    </div>
+    <div class="lib-pagination">
+      <button id="btn-prev" class="btn btn-secondary btn-sm" disabled>◀ Prev</button>
+      <button id="btn-next" class="btn btn-secondary btn-sm">Next ▶</button>
+    </div>
+  </div>
+
+  <div class="poster-grid" id="poster-grid">
+    {% for movie in unedited %}
+    <a href="/movie/{{ movie.id }}?back=/library/{{ library.id }}" class="poster-card" data-pos="{{ loop.index0 }}">
+      <img data-src="/movie/{{ movie.id }}/poster/original" alt="{{ movie.name }}">
+      <span class="poster-title">{{ movie.name }} <span class="poster-year">({{ movie.production_year }})</span></span>
+    </a>
+    {% endfor %}
+    {% for movie in edited %}
+    <a href="/movie/{{ movie.id }}?back=/library/{{ library.id }}" class="poster-card poster-card--edited" data-pos="{{ unedited | length + loop.index0 }}">
+      <img data-src="/movie/{{ movie.id }}/poster/original" alt="{{ movie.name }}">
+      <span class="poster-title">{{ movie.name }} <span class="poster-year">({{ movie.production_year }})</span></span>
+    </a>
+    {% endfor %}
+  </div>
+
+  <div class="lib-controls lib-controls--bottom">
+    <span class="lib-page-info" id="page-info-bottom"></span>
+    <div class="lib-pagination">
+      <button id="btn-prev-bottom" class="btn btn-secondary btn-sm" disabled>◀ Prev</button>
+      <button id="btn-next-bottom" class="btn btn-secondary btn-sm">Next ▶</button>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'libPageSize';
+    const cards = Array.from(document.querySelectorAll('.poster-card'));
+    const total = cards.length;
+
+    let pageSize = parseInt(localStorage.getItem(STORAGE_KEY), 10) || 25;
+    let page = 0;
+
+    function loadImg(card) {
+      const img = card.querySelector('img');
+      if (img && img.dataset.src && !img.getAttribute('src')) img.src = img.dataset.src;
+    }
+
+    function render() {
+      const totalPages = Math.max(1, Math.ceil(total / pageSize));
+      page = Math.min(page, totalPages - 1);
+      const start = page * pageSize;
+      const end = start + pageSize;
+
+      cards.forEach((card, i) => {
+        const visible = i >= start && i < end;
+        card.hidden = !visible;
+        if (visible) loadImg(card);
+      });
+
+      const info = `Page ${page + 1} of ${totalPages} (${total} items)`;
+      document.getElementById('page-info').textContent = info;
+      document.getElementById('page-info-bottom').textContent = info;
+
+      const atFirst = page === 0;
+      const atLast = page >= totalPages - 1;
+      document.getElementById('btn-prev').disabled = atFirst;
+      document.getElementById('btn-next').disabled = atLast;
+      document.getElementById('btn-prev-bottom').disabled = atFirst;
+      document.getElementById('btn-next-bottom').disabled = atLast;
+
+      document.querySelectorAll('.page-size-btn').forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.dataset.size, 10) === pageSize);
+      });
+    }
+
+    function go(delta) {
+      page += delta;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    document.getElementById('btn-prev').addEventListener('click', () => go(-1));
+    document.getElementById('btn-next').addEventListener('click', () => go(1));
+    document.getElementById('btn-prev-bottom').addEventListener('click', () => go(-1));
+    document.getElementById('btn-next-bottom').addEventListener('click', () => go(1));
+
+    document.querySelectorAll('.page-size-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        pageSize = parseInt(btn.dataset.size, 10);
+        page = 0;
+        localStorage.setItem(STORAGE_KEY, pageSize);
+        render();
+      });
+    });
+
+    render();
+  </script>
+</body>
+</html>

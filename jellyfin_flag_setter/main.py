@@ -201,9 +201,35 @@ async def index(request: Request, current_user: User = Depends(get_current_user)
     )
 
 
+@app.get("/library/{library_id}")
+async def library_view(
+    request: Request, library_id: str, current_user: User = Depends(get_current_user)
+):
+    library = next(
+        (lib for lib in _get_libraries(request) if lib.id == library_id), None
+    )
+    if library is None:
+        return RedirectResponse("/", status_code=302)
+    unedited = [i for i in library.items if i.id not in library.edited_item_ids]
+    edited = [i for i in library.items if i.id in library.edited_item_ids]
+    return templates.TemplateResponse(
+        request,
+        "library.html",
+        {
+            "library": library,
+            "unedited": unedited,
+            "edited": edited,
+            "user": current_user,
+        },
+    )
+
+
 @app.get("/movie/{item_id}")
 async def movie_preview(
-    request: Request, item_id: str, current_user: User = Depends(get_current_user)
+    request: Request,
+    item_id: str,
+    back: str = "/",
+    current_user: User = Depends(get_current_user),
 ):
     client = _get_client(request)
     movie, poster = await asyncio.gather(
@@ -232,6 +258,7 @@ async def movie_preview(
             "preview_qs": preview_qs,
             "next_id": next_id,
             "already_edited": is_edited(poster),
+            "back": back,
             "user": current_user,
         },
     )
