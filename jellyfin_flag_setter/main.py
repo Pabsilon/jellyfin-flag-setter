@@ -32,6 +32,7 @@ from jellyfin_flag_setter.sync.models import LibraryWithItems
 from jellyfin_flag_setter.sync.store import (
     load_libraries,
     mark_item_edited,
+    mark_item_unedited,
     save_libraries,
 )
 
@@ -269,6 +270,19 @@ async def poster_original(
     item_id: str, request: Request, _: User = Depends(get_current_user)
 ):
     data = await _get_client(request).get_poster(item_id)
+    edited = is_edited(data)
+    for lib in _get_libraries(request):
+        if any(item.id == item_id for item in lib.items):
+            was_edited = item_id in lib.edited_item_ids
+            if edited != was_edited:
+                lib.edited_item_ids.add(
+                    item_id
+                ) if edited else lib.edited_item_ids.discard(item_id)
+                with Session(get_engine()) as session:
+                    mark_item_edited(
+                        session, item_id
+                    ) if edited else mark_item_unedited(session, item_id)
+            break
     return Response(content=data, media_type="image/jpeg")
 
 
