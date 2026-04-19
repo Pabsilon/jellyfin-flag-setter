@@ -100,6 +100,14 @@ def mark_item_edited(session: Session, item_id: str) -> None:
         session.commit()
 
 
+def mark_item_unedited(session: Session, item_id: str) -> None:
+    item = session.get(DBMediaItem, item_id)
+    if item:
+        item.is_edited = False
+        session.add(item)
+        session.commit()
+
+
 def update_edited_flags(session: Session, edited_map: dict[str, bool]) -> None:
     """Bulk-update is_edited from a poster scan pass."""
     for item_id, is_edited in edited_map.items():
