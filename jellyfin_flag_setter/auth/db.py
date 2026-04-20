@@ -3,6 +3,7 @@ from pathlib import Path
 
 from sqlmodel import Session, SQLModel, create_engine
 
+import jellyfin_flag_setter.jobs.models  # noqa: F401 — registers job_config table
 import jellyfin_flag_setter.sync.models  # noqa: F401 — registers sync tables with SQLModel metadata
 from jellyfin_flag_setter.config import settings
 

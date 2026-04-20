@@ -563,3 +563,57 @@ figure img {
   color: #fff;
 }
 .lib-pagination { display: flex; gap: 0.35rem; }
+
+/* ── Job cards ── */
+.job-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  max-width: 420px;
+}
+.job-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.3rem;
+}
+.job-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.job-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.job-status-dot--running {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+  animation: job-pulse 1.2s ease-in-out infinite;
+}
+@keyframes job-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+.job-status-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.job-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.9rem;
+}
+.job-controls .form-group { margin-bottom: 0.75rem; }
+.job-controls .form-group input {
+  width: 120px;
+}
+.job-feedback {
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+}

@@ -85,10 +85,11 @@ async def settings_page(
     request: Request,
     current_user: User = Depends(get_current_user),
 ):
+    jobs = request.app.state.job_manager.list_statuses()
     return templates.TemplateResponse(
         request,
         "settings.html",
-        {"user": current_user, "success": None, "error": None},
+        {"user": current_user, "success": None, "error": None, "jobs": jobs},
     )
 
 
@@ -101,6 +102,7 @@ async def change_password(
     current_user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    jobs = request.app.state.job_manager.list_statuses()
     if not verify_password(current_password, current_user.hashed_password):
         return templates.TemplateResponse(
             request,
@@ -109,6 +111,7 @@ async def change_password(
                 "user": current_user,
                 "error": "Current password is incorrect",
                 "success": None,
+                "jobs": jobs,
             },
             status_code=400,
         )
@@ -120,6 +123,7 @@ async def change_password(
                 "user": current_user,
                 "error": "New passwords do not match",
                 "success": None,
+                "jobs": jobs,
             },
             status_code=400,
         )
@@ -131,6 +135,7 @@ async def change_password(
                 "user": current_user,
                 "error": "Password must be at least 8 characters",
                 "success": None,
+                "jobs": jobs,
             },
             status_code=400,
         )
@@ -144,5 +149,6 @@ async def change_password(
             "user": current_user,
             "success": "Password updated successfully",
             "error": None,
+            "jobs": jobs,
         },
     )

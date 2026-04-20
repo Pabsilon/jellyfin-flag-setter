@@ -92,6 +92,37 @@ def save_libraries(session: Session, libraries: list[LibraryWithItems]) -> None:
     session.commit()
 
 
+def upsert_items(
+    session: Session,
+    library_id: str,
+    items: list[MovieItem],
+    edited_map: dict[str, bool],
+) -> None:
+    for item in items:
+        if session.get(DBMediaItem, item.id) is not None:
+            continue
+        session.add(
+            DBMediaItem(
+                id=item.id,
+                library_id=library_id,
+                name=item.name,
+                production_year=item.production_year,
+                is_edited=edited_map.get(item.id, False),
+            )
+        )
+        for stream in item.media_streams:
+            session.add(
+                DBMediaStream(
+                    item_id=item.id,
+                    type=stream.type,
+                    language=stream.language,
+                    display_title=stream.display_title,
+                    codec=stream.codec,
+                )
+            )
+    session.commit()
+
+
 def mark_item_edited(session: Session, item_id: str) -> None:
     item = session.get(DBMediaItem, item_id)
     if item:

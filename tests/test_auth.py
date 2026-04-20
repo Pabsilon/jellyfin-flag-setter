@@ -7,11 +7,15 @@ PROTECTED_GET_ROUTES = [
     "/movie/movie1/poster/original",
     "/movie/movie1/poster/preview",
     "/settings",
+    "/api/jobs",
+    "/api/jobs/library_sync",
 ]
 
 PROTECTED_POST_ROUTES = [
     ("/movie/movie1/apply", {}),
     ("/settings/password", {}),
+    ("/api/jobs/library_sync/run", {}),
+    ("/api/jobs/library_sync/interval", {"interval_minutes": "60"}),
 ]
 
 

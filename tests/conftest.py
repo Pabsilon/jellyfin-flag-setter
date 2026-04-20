@@ -54,6 +54,7 @@ def setup_base_routes(router: respx.MockRouter) -> None:
         }
     )
     router.get("/Items").respond(json={"Items": [FAKE_MOVIE], "TotalRecordCount": 1})
+    router.get("/Users/user1/Items/Latest").respond(json=[])
     router.post("/Items/movie1/Images/Primary").respond(status_code=204)
 
 
