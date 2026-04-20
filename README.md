@@ -1,58 +1,70 @@
 # Jellyfin Flag Setter
 
-This is a _very_ work in progress and experimental project for setting flags to jellyfin posters.
+This is an experimental flag setter for jellyfin posters
 
+# 🤖 Disclaimer
 
+This project was 100% vibecoded using Claude Code with Sonnet 4.6 & Opus 4.7.
 
+I am a full time back-end developper and I wanted to see how far these tools have come.
 
-# OLD VERSION - Script only
-Check the `old` branch for the old script.
-## Requirements:
+# Project Info
 
-libimage-exiftool-perl
+![Edit preview](.github/images/preview.png)
 
-To install it, run:
+It features:
+
+- Automatic mapping from Audio metadata to flags (Still Work in Progress)
+- A local database that keeps track of edited files
+- Metadata to actually know if the file was edited or not
+- Two sync jobs (Recently added / Full Scan)
+
+----
+
+## Jobs
+
+![Jobs](.github/images/jobs.png)
+
+### Library Sync
+This is a job that runs once every 24h and fetches all images to update their status
+
+### Recent Sync
+The recent sync job runs by default every 15 minutes to scan for recently added media
+
+------------
+
+# Deployment
+
+The recommended way of running it is with docker. (Specially, docker-compose)
+
+`docker-compose.yml`
 
 ```
-sudo apt install libimage-exiftool-perl
+services:
+  jellyfin-flag-setter:
+    image: ghcr.io/pabsilon/jellyfin-flag-setter:latest
+    restart: unless-stopped
+    ports:
+      - 8000:8000
+    env_file: .env
+    volumes:
+      - .:/app/data
+networks: {}
 ```
 
-### Disclaimer:
+`.env` file
 
-The script is provided as-is, and might (mostly will) require fine-tuning.
+```
+JELLYFIN_URL=http://your-jellyfin-host:8096
+JELLYFIN_API_KEY=your_api_key_here
 
-In the script, update the two values in lines 15 & 16 in order to reflect where your flag png reference files reside, and what temp folder you will use.
+# Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+SECRET_KEY=your_secret_key_here
 
-In my case, the script resides in **/mnt/temp2/flags**.
+# Path to the SQLite database file (Don't change it)
+DB_PATH=data/flagsetter.db
+```
 
-This is residing on a Debian 12 machine, and my jellyfin instance is running the latest image in docker. 
+On first startup, it will run a job to fetch all the libraries in your server. It might take a while depending on the size of your library.
 
-**You need to change the routes depending where your script, and the flags pngs reside.**
-
-### Jellyfin configuration
-
-Jellyfin usually stores the posters for the images in a different folder. You can make it so that the images are stored alongside the file:
-
-Go to Dashboard -> Libraries -> Libraries -> [Library] -> Manage Library
-
-In Image Fetchers, tick the "Save artwork into media folders".
-
-Refreshing all metadata of the library (including images) will make it so that a collection of images are stored alongside the file: backdrop.jpg, folder.jpg, logo.png. We're deliberately targetting 'folder.jpg' which is the image used in the gallery.
-
-### Usage
-
-Move the set_flags.sh script to /usr/bin so that it's always available in your path. (You might need to re-login again)
-
-Go to the folder containing your media that requires the image modified.
-
-Run:
-
-```set_flags.sh es_gb```
-
-to set the Spanish and UK flags.
-
-The order of flags is determined by the script. Flags can be added by adding them as .png files to the flags forlder (I recommend a width of 160 pixels for the flags, I sourced mine from [here](https://flagpedia.net/download/icons).
-
-### Thanks to:
-
-ProductRockstar in [reddit](https://www.reddit.com/r/jellyfin/comments/11dgmp3/script_to_add_language_overlay_to_movie_poster/) for inspiring this script.
+Once the job is ready, the first setup will ask you to create a user and password.
