@@ -1,6 +1,9 @@
 # Jellyfin Flag Setter
 
-This is an experimental flag setter for jellyfin posters
+This is an experimental flag setter for jellyfin posters.
+
+### Current known issues
+- The jobs are 'too aggressive' and might kill responsiveness of the server while running
 
 # 🤖 Disclaimer
 
