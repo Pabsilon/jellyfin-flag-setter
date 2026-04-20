@@ -19,7 +19,7 @@ class JellyfinClient:
                 "X-Emby-Authorization": f"MediaBrowser "
                 f'Token="{settings.jellyfin_api_key}"'
             },
-            timeout=30.0,
+            timeout=300.0,
         )
         self._user_id: str | None = None
 
