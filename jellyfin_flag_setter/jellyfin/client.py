@@ -42,6 +42,24 @@ class JellyfinClient:
             response.content, strict=False
         ).items
 
+    async def get_recently_added(
+        self, library_id: str, item_types: str = "Movie", limit: int = 20
+    ) -> list[MovieItem]:
+        user_id = await self._get_user_id()
+        response = await self._http.get(
+            f"/Users/{user_id}/Items/Latest",
+            params={
+                "parentId": library_id,
+                "IncludeItemTypes": item_types,
+                "Fields": "MediaStreams",
+                "Limit": limit,
+            },
+        )
+        response.raise_for_status()
+        return [
+            MovieItem.model_validate(item, strict=False) for item in response.json()
+        ]
+
     async def get_library_items(
         self, library_id: str, item_types: str = "Movie"
     ) -> list[MovieItem]:

@@ -36,9 +36,11 @@ from jellyfin_flag_setter.sync.store import (
     mark_item_edited,
     mark_item_unedited,
     save_libraries,
+    upsert_items,
 )
 
 _LIBRARY_REFRESH_DEFAULT_INTERVAL = 86400  # seconds
+_RECENT_SYNC_DEFAULT_INTERVAL = 900  # seconds
 logger = logging.getLogger(__name__)
 
 
@@ -102,6 +104,48 @@ async def _check_all_posters(
     return edited_map
 
 
+async def _sync_recent(app: FastAPI) -> None:
+    libraries = app.state.libraries
+    results = await asyncio.gather(
+        *(
+            app.state.jellyfin.get_recently_added(
+                lib.id, _COLLECTION_TYPE_MAP.get(lib.collection_type or "", "Movie")
+            )
+            for lib in libraries
+        ),
+        return_exceptions=True,
+    )
+    new_per_lib = []
+    for lib, result in zip(libraries, results):
+        if isinstance(result, BaseException):
+            logger.warning("Recent sync: skipping library %s: %s", lib.name, result)
+            continue
+        new_per_lib.append(
+            (lib, [i for i in result if i.id not in {x.id for x in lib.items}])
+        )
+    all_new = [(lib, item) for lib, items in new_per_lib for item in items]
+    if not all_new:
+        logger.info("Recent sync: no new items")
+        return
+
+    temp_lib = LibraryWithItems(
+        id="", name="", collection_type=None, items=[i for _, i in all_new]
+    )
+    edited_map = await _check_all_posters(app.state.jellyfin, [temp_lib])
+
+    with Session(get_engine()) as session:
+        for lib, items in new_per_lib:
+            if items:
+                upsert_items(session, lib.id, items, edited_map)
+
+    for lib, item in all_new:
+        lib.items.append(item)
+        if edited_map.get(item.id):
+            lib.edited_item_ids.add(item.id)
+
+    logger.info("Recent sync: added %d new items", len(all_new))
+
+
 async def _sync_libraries(app: FastAPI) -> None:
     libraries = await _load_libraries(app.state.jellyfin)
     edited_map = await _check_all_posters(app.state.jellyfin, libraries)
@@ -145,6 +189,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         "Library Sync",
         lambda: _sync_libraries(app),
         default_interval=_LIBRARY_REFRESH_DEFAULT_INTERVAL,
+        time_unit="hours",
+    )
+    job_manager.register(
+        "recent_sync",
+        "Recent Sync",
+        lambda: _sync_recent(app),
+        default_interval=_RECENT_SYNC_DEFAULT_INTERVAL,
     )
     app.state.job_manager = job_manager
     job_manager.start(get_engine())

@@ -31,9 +31,9 @@
     </div>
     <div class="job-controls">
       <div class="form-group">
-        <label for="interval-{{ job.job_id }}">Interval (minutes)</label>
+        <label for="interval-{{ job.job_id }}">Interval ({{ job.time_unit }})</label>
         <input id="interval-{{ job.job_id }}" class="job-interval-input" type="number" min="1"
-               value="{{ (job.interval_seconds // 60) }}" data-job-id="{{ job.job_id }}">
+               value="{{ job.interval_display }}" data-job-id="{{ job.job_id }}">
       </div>
       <div class="apply-bar">
         <button class="job-save-interval" data-job-id="{{ job.job_id }}">Save interval</button>
@@ -105,9 +105,9 @@
     document.querySelectorAll('.job-save-interval').forEach(btn => {
       btn.addEventListener('click', async () => {
         const jobId = btn.dataset.jobId;
-        const minutes = document.querySelector(`.job-interval-input[data-job-id="${jobId}"]`).value;
+        const value = document.querySelector(`.job-interval-input[data-job-id="${jobId}"]`).value;
         const data = new FormData();
-        data.append('interval_minutes', minutes);
+        data.append('interval_value', value);
         const resp = await fetch(`/api/jobs/${jobId}/interval`, { method: 'POST', body: data });
         showFeedback(jobId, resp.ok ? 'Interval saved.' : 'Failed to save.', !resp.ok);
       });

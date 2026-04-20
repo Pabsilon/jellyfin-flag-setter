@@ -3,6 +3,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Literal
 
 from sqlalchemy import Engine
 from sqlmodel import Session
@@ -18,6 +19,7 @@ class _JobInfo:
     label: str
     default_interval: int
     fn: Callable[[], Awaitable[None]]
+    time_unit: Literal["minutes", "hours"] = "minutes"
 
 
 class JobManager:
@@ -34,8 +36,9 @@ class JobManager:
         label: str,
         fn: Callable[[], Awaitable[None]],
         default_interval: int = 3600,
+        time_unit: Literal["minutes", "hours"] = "minutes",
     ) -> None:
-        self._jobs[job_id] = _JobInfo(job_id, label, default_interval, fn)
+        self._jobs[job_id] = _JobInfo(job_id, label, default_interval, fn, time_unit)
         self._locks[job_id] = asyncio.Lock()
         self._running[job_id] = False
 
@@ -112,12 +115,14 @@ class JobManager:
         job = self._jobs[job_id]
         with Session(self._engine) as session:
             config = session.get(DBJobConfig, job_id)
+        interval_seconds = config.interval_seconds if config else job.default_interval
+        divisor = 3600 if job.time_unit == "hours" else 60
         return {
             "job_id": job_id,
             "label": job.label,
-            "interval_seconds": config.interval_seconds
-            if config
-            else job.default_interval,
+            "time_unit": job.time_unit,
+            "interval_seconds": interval_seconds,
+            "interval_display": interval_seconds // divisor,
             "is_running": self._running[job_id],
             "last_run_at": (
                 config.last_run_at.isoformat()

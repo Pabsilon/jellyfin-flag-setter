@@ -46,9 +46,14 @@ async def run_job(
 async def update_interval(
     job_id: str,
     request: Request,
-    interval_minutes: int = Form(),
+    interval_value: int = Form(),
     _: User = Depends(get_current_user),
 ) -> JSONResponse:
-    interval_minutes = max(1, interval_minutes)
-    _manager(request).update_interval(job_id, interval_minutes * 60)
+    manager = _manager(request)
+    if job_id not in manager._jobs:
+        return JSONResponse({"error": "unknown job"}, status_code=404)
+    interval_value = max(1, interval_value)
+    status = manager.get_status(job_id)
+    multiplier = 3600 if status["time_unit"] == "hours" else 60
+    manager.update_interval(job_id, interval_value * multiplier)
     return JSONResponse({"ok": True})
