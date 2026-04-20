@@ -38,7 +38,7 @@ from jellyfin_flag_setter.sync.store import (
     save_libraries,
 )
 
-_LIBRARY_REFRESH_DEFAULT_INTERVAL = 3600  # seconds
+_LIBRARY_REFRESH_DEFAULT_INTERVAL = 86400  # seconds
 logger = logging.getLogger(__name__)
 
 

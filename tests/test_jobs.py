@@ -22,7 +22,7 @@ def test_job_status_fields(auth_client: TestClient):
     assert resp.status_code == 200
     job = resp.json()
     assert job["job_id"] == "library_sync"
-    assert job["interval_seconds"] == 3600
+    assert job["interval_seconds"] == 86400
     assert job["is_running"] is False
     assert job["last_run_at"] is None
 
