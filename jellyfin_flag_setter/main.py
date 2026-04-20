@@ -28,6 +28,8 @@ from jellyfin_flag_setter.flags.mapping import (
 )
 from jellyfin_flag_setter.jellyfin.client import JellyfinClient
 from jellyfin_flag_setter.jellyfin.models import MovieItem
+from jellyfin_flag_setter.jobs.router import router as jobs_router
+from jellyfin_flag_setter.jobs.runner import JobManager
 from jellyfin_flag_setter.sync.models import LibraryWithItems
 from jellyfin_flag_setter.sync.store import (
     load_libraries,
@@ -36,7 +38,7 @@ from jellyfin_flag_setter.sync.store import (
     save_libraries,
 )
 
-_LIBRARY_REFRESH_INTERVAL = 3600  # seconds
+_LIBRARY_REFRESH_DEFAULT_INTERVAL = 3600  # seconds
 logger = logging.getLogger(__name__)
 
 
@@ -100,24 +102,19 @@ async def _check_all_posters(
     return edited_map
 
 
-async def _refresh_loop(app: FastAPI) -> None:
-    while True:
-        await asyncio.sleep(_LIBRARY_REFRESH_INTERVAL)
-        try:
-            libraries = await _load_libraries(app.state.jellyfin)
-            edited_map = await _check_all_posters(app.state.jellyfin, libraries)
-            _apply_edited_map(libraries, edited_map)
-            with Session(get_engine()) as session:
-                save_libraries(session, libraries)
-            app.state.libraries = libraries
-            total = sum(len(lib.items) for lib in libraries)
-            logger.info(
-                "Refreshed libraries (%d items across %d libraries)",
-                total,
-                len(libraries),
-            )
-        except Exception:
-            logger.exception("Failed to refresh libraries")
+async def _sync_libraries(app: FastAPI) -> None:
+    libraries = await _load_libraries(app.state.jellyfin)
+    edited_map = await _check_all_posters(app.state.jellyfin, libraries)
+    _apply_edited_map(libraries, edited_map)
+    with Session(get_engine()) as session:
+        save_libraries(session, libraries)
+    app.state.libraries = libraries
+    total = sum(len(lib.items) for lib in libraries)
+    logger.info(
+        "Refreshed libraries (%d items across %d libraries)",
+        total,
+        len(libraries),
+    )
 
 
 @asynccontextmanager
@@ -142,9 +139,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             "Synced %d items from Jellyfin across %d libraries", total, len(libraries)
         )
     app.state.libraries = libraries
-    refresh_task = asyncio.create_task(_refresh_loop(app))
+    job_manager = JobManager()
+    job_manager.register(
+        "library_sync",
+        "Library Sync",
+        lambda: _sync_libraries(app),
+        default_interval=_LIBRARY_REFRESH_DEFAULT_INTERVAL,
+    )
+    app.state.job_manager = job_manager
+    job_manager.start(get_engine())
     yield
-    refresh_task.cancel()
+    await job_manager.stop()
     await app.state.jellyfin.aclose()
 
 
@@ -164,6 +169,7 @@ app.add_middleware(SessionMiddleware, secret_key=_secret_key)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(auth_router)
+app.include_router(jobs_router)
 templates = Jinja2Templates(directory="templates")
 
 

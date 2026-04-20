@@ -18,6 +18,32 @@
 
   <h1>Settings</h1>
 
+  <h2>Jobs</h2>
+  {% for job in jobs %}
+  <div class="job-card" data-job-id="{{ job.job_id }}">
+    <div class="job-header">
+      <span class="job-label">{{ job.label }}</span>
+      <span class="job-status-dot{% if job.is_running %} job-status-dot--running{% endif %}"></span>
+      <span class="job-status-text">{{ "Running…" if job.is_running else "Idle" }}</span>
+    </div>
+    <div class="job-meta">
+      Last run: <span class="job-last-run" data-iso="{{ job.last_run_at or '' }}">{{ job.last_run_at or "Never" }}</span>
+    </div>
+    <div class="job-controls">
+      <div class="form-group">
+        <label for="interval-{{ job.job_id }}">Interval (minutes)</label>
+        <input id="interval-{{ job.job_id }}" class="job-interval-input" type="number" min="1"
+               value="{{ (job.interval_seconds // 60) }}" data-job-id="{{ job.job_id }}">
+      </div>
+      <div class="apply-bar">
+        <button class="job-save-interval" data-job-id="{{ job.job_id }}">Save interval</button>
+        <button class="btn-secondary job-run-now" data-job-id="{{ job.job_id }}">Run now</button>
+      </div>
+      <div class="job-feedback" data-job-id="{{ job.job_id }}" hidden></div>
+    </div>
+  </div>
+  {% endfor %}
+
   <h2>Change Password</h2>
   {% if error %}
   <div class="form-error">{{ error }}</div>
@@ -43,5 +69,62 @@
       <a href="/" class="btn btn-secondary">Cancel</a>
     </div>
   </form>
+
+  <script>
+    // Format ISO dates on load
+    document.querySelectorAll('.job-last-run[data-iso]').forEach(el => {
+      const iso = el.dataset.iso;
+      if (iso) el.textContent = new Date(iso).toLocaleString();
+    });
+
+    function updateJobCard(job) {
+      const card = document.querySelector(`.job-card[data-job-id="${job.job_id}"]`);
+      if (!card) return;
+      card.querySelector('.job-status-dot').classList.toggle('job-status-dot--running', job.is_running);
+      card.querySelector('.job-status-text').textContent = job.is_running ? 'Running…' : 'Idle';
+      const lastRun = card.querySelector('.job-last-run');
+      lastRun.textContent = job.last_run_at ? new Date(job.last_run_at).toLocaleString() : 'Never';
+    }
+
+    function showFeedback(jobId, msg, isError) {
+      const el = document.querySelector(`.job-feedback[data-job-id="${jobId}"]`);
+      el.textContent = msg;
+      el.className = 'job-feedback ' + (isError ? 'form-error' : 'form-success');
+      el.hidden = false;
+      setTimeout(() => { el.hidden = true; }, 4000);
+    }
+
+    async function pollJobs() {
+      try {
+        const resp = await fetch('/api/jobs');
+        if (resp.ok) (await resp.json()).forEach(updateJobCard);
+      } catch {}
+      setTimeout(pollJobs, 3000);
+    }
+
+    document.querySelectorAll('.job-save-interval').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const jobId = btn.dataset.jobId;
+        const minutes = document.querySelector(`.job-interval-input[data-job-id="${jobId}"]`).value;
+        const data = new FormData();
+        data.append('interval_minutes', minutes);
+        const resp = await fetch(`/api/jobs/${jobId}/interval`, { method: 'POST', body: data });
+        showFeedback(jobId, resp.ok ? 'Interval saved.' : 'Failed to save.', !resp.ok);
+      });
+    });
+
+    document.querySelectorAll('.job-run-now').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const jobId = btn.dataset.jobId;
+        const resp = await fetch(`/api/jobs/${jobId}/run`, { method: 'POST' });
+        const body = await resp.json();
+        if (!resp.ok || !body.triggered) {
+          showFeedback(jobId, body.triggered === false ? 'Job is already running.' : 'Failed to trigger.', true);
+        }
+      });
+    });
+
+    pollJobs();
+  </script>
 </body>
 </html>
