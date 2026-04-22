@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import secrets
+import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -39,6 +40,8 @@ from jellyfin_flag_setter.sync.store import (
     set_library_excluded,
     upsert_items,
 )
+
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
 _LIBRARY_REFRESH_DEFAULT_INTERVAL = 86400  # seconds
 _RECENT_SYNC_DEFAULT_INTERVAL = 900  # seconds
@@ -118,17 +121,41 @@ async def _sync_recent(app: FastAPI) -> None:
     new_per_lib = []
     for lib in libraries:
         try:
-            result = await app.state.jellyfin.get_recently_added(
+            t0 = time.monotonic()
+            recent = await app.state.jellyfin.get_recently_added(
                 lib.id,
                 _COLLECTION_TYPE_MAP.get(lib.collection_type or "", "Movie"),
                 limit=5,
             )
+            logger.info(
+                "Recent sync: get_recently_added [%s] took %.2fs",
+                lib.name,
+                time.monotonic() - t0,
+            )
         except Exception as e:
             logger.warning("Recent sync: skipping library %s: %s", lib.name, e)
             continue
-        new_per_lib.append(
-            (lib, [i for i in result if i.id not in {x.id for x in lib.items}])
-        )
+        new_items = [i for i in recent if i.id not in {x.id for x in lib.items}]
+        if not new_items:
+            continue
+        if lib.collection_type == "movies":
+            try:
+                t0 = time.monotonic()
+                new_items = await app.state.jellyfin.get_items_by_ids(
+                    [i.id for i in new_items]
+                )
+                logger.info(
+                    "Recent sync: get_items_by_ids [%s] (%d items) took %.2fs",
+                    lib.name,
+                    len(new_items),
+                    time.monotonic() - t0,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Recent sync: failed to fetch items for %s: %s", lib.name, e
+                )
+                continue
+        new_per_lib.append((lib, new_items))
     all_new = [(lib, item) for lib, items in new_per_lib for item in items]
     if not all_new:
         logger.info("Recent sync: no new items")
@@ -137,7 +164,13 @@ async def _sync_recent(app: FastAPI) -> None:
     temp_lib = LibraryWithItems(
         id="", name="", collection_type=None, items=[i for _, i in all_new]
     )
+    t0 = time.monotonic()
     edited_map = await _check_all_posters(app.state.jellyfin, [temp_lib])
+    logger.info(
+        "Recent sync: _check_all_posters (%d items) took %.2fs",
+        len(all_new),
+        time.monotonic() - t0,
+    )
 
     with Session(get_engine()) as session:
         for lib, items in new_per_lib:
