@@ -5,7 +5,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Form, Query, Request
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session
@@ -36,6 +36,7 @@ from jellyfin_flag_setter.sync.store import (
     mark_item_edited,
     mark_item_unedited,
     save_libraries,
+    set_library_excluded,
     upsert_items,
 )
 
@@ -50,21 +51,29 @@ _COLLECTION_TYPE_MAP = {
 }
 
 
-async def _load_libraries(client: JellyfinClient) -> list[LibraryWithItems]:
+async def _load_libraries(
+    client: JellyfinClient, excluded_ids: set[str] | frozenset[str] = frozenset()
+) -> list[LibraryWithItems]:
     libraries = await client.get_libraries()
+    active = [lib for lib in libraries if lib.id not in excluded_ids]
     items_per_library = await asyncio.gather(
         *(
             client.get_library_items(
                 lib.id, _COLLECTION_TYPE_MAP.get(lib.collection_type or "", "Movie")
             )
-            for lib in libraries
+            for lib in active
         )
     )
+    active_items = {lib.id: items for lib, items in zip(active, items_per_library)}
     return [
         LibraryWithItems(
-            id=lib.id, name=lib.name, collection_type=lib.collection_type, items=items
+            id=lib.id,
+            name=lib.name,
+            collection_type=lib.collection_type,
+            items=active_items.get(lib.id, []),
+            is_excluded=lib.id in excluded_ids,
         )
-        for lib, items in zip(libraries, items_per_library)
+        for lib in libraries
     ]
 
 
@@ -105,7 +114,7 @@ async def _check_all_posters(
 
 
 async def _sync_recent(app: FastAPI) -> None:
-    libraries = app.state.libraries
+    libraries = [lib for lib in app.state.libraries if not lib.is_excluded]
     results = await asyncio.gather(
         *(
             app.state.jellyfin.get_recently_added(
@@ -147,9 +156,11 @@ async def _sync_recent(app: FastAPI) -> None:
 
 
 async def _sync_libraries(app: FastAPI) -> None:
-    libraries = await _load_libraries(app.state.jellyfin)
-    edited_map = await _check_all_posters(app.state.jellyfin, libraries)
-    _apply_edited_map(libraries, edited_map)
+    excluded_ids = {lib.id for lib in app.state.libraries if lib.is_excluded}
+    libraries = await _load_libraries(app.state.jellyfin, excluded_ids)
+    active = [lib for lib in libraries if not lib.is_excluded]
+    edited_map = await _check_all_posters(app.state.jellyfin, active)
+    _apply_edited_map(active, edited_map)
     with Session(get_engine()) as session:
         save_libraries(session, libraries)
     app.state.libraries = libraries
@@ -224,6 +235,24 @@ app.include_router(jobs_router)
 templates = Jinja2Templates(directory="templates")
 
 
+@app.post("/api/libraries/{library_id}/excluded")
+async def set_excluded(
+    library_id: str,
+    request: Request,
+    excluded: bool = Form(),
+    _: User = Depends(get_current_user),
+):
+    with Session(get_engine()) as session:
+        found = set_library_excluded(session, library_id, excluded)
+    if not found:
+        return JSONResponse({"error": "unknown library"}, status_code=404)
+    for lib in request.app.state.libraries:
+        if lib.id == library_id:
+            lib.is_excluded = excluded
+            break
+    return JSONResponse({"ok": True})
+
+
 @app.exception_handler(RequiresLogin)
 async def _requires_login(request: Request, exc: RequiresLogin):
     return RedirectResponse("/login", status_code=302)
@@ -255,7 +284,12 @@ async def index(request: Request, current_user: User = Depends(get_current_user)
     return templates.TemplateResponse(
         request,
         "index.html",
-        {"libraries": _get_libraries(request), "user": current_user},
+        {
+            "libraries": [
+                lib for lib in _get_libraries(request) if not lib.is_excluded
+            ],
+            "user": current_user,
+        },
     )
 
 

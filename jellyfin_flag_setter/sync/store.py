@@ -47,6 +47,7 @@ def load_libraries(session: Session) -> list[LibraryWithItems] | None:
                 collection_type=lib.collection_type,
                 items=items,
                 edited_item_ids=edited_ids,
+                is_excluded=lib.is_excluded,
             )
         )
     return result
@@ -66,6 +67,7 @@ def save_libraries(session: Session, libraries: list[LibraryWithItems]) -> None:
                 name=lib.name,
                 collection_type=lib.collection_type,
                 last_full_sync_at=sync_time,
+                is_excluded=lib.is_excluded,
             )
         )
         for item in lib.items:
@@ -137,6 +139,16 @@ def mark_item_unedited(session: Session, item_id: str) -> None:
         item.is_edited = False
         session.add(item)
         session.commit()
+
+
+def set_library_excluded(session: Session, library_id: str, excluded: bool) -> bool:
+    lib = session.get(DBLibrary, library_id)
+    if lib is None:
+        return False
+    lib.is_excluded = excluded
+    session.add(lib)
+    session.commit()
+    return True
 
 
 def update_edited_flags(session: Session, edited_map: dict[str, bool]) -> None:
