@@ -115,19 +115,16 @@ async def _check_all_posters(
 
 async def _sync_recent(app: FastAPI) -> None:
     libraries = [lib for lib in app.state.libraries if not lib.is_excluded]
-    results = await asyncio.gather(
-        *(
-            app.state.jellyfin.get_recently_added(
-                lib.id, _COLLECTION_TYPE_MAP.get(lib.collection_type or "", "Movie")
-            )
-            for lib in libraries
-        ),
-        return_exceptions=True,
-    )
     new_per_lib = []
-    for lib, result in zip(libraries, results):
-        if isinstance(result, BaseException):
-            logger.warning("Recent sync: skipping library %s: %s", lib.name, result)
+    for lib in libraries:
+        try:
+            result = await app.state.jellyfin.get_recently_added(
+                lib.id,
+                _COLLECTION_TYPE_MAP.get(lib.collection_type or "", "Movie"),
+                limit=5,
+            )
+        except Exception as e:
+            logger.warning("Recent sync: skipping library %s: %s", lib.name, e)
             continue
         new_per_lib.append(
             (lib, [i for i in result if i.id not in {x.id for x in lib.items}])

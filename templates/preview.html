@@ -103,7 +103,7 @@
       const flags = checkedFlags();
       const container = document.getElementById('apply-flags');
       container.innerHTML = flags.map(f => `<input type="hidden" name="flags" value="${f}">`).join('');
-      document.getElementById('apply-btn').disabled = flags.length === 0;
+      document.getElementById('apply-btn').disabled = false;
     }
 
     function addFlag(code) {
@@ -133,6 +133,11 @@
 
     document.querySelectorAll('#flag-form input[type=checkbox]').forEach(cb => cb.addEventListener('change', syncApplyFlags));
     syncApplyFlags();
+
+    document.addEventListener('keydown', function (e) {
+      if (document.activeElement === document.getElementById('flag-search')) return;
+      if (e.key === 'j') document.querySelector('form[action*="/apply"]').submit();
+    });
   </script>
 </body>
 </html>
