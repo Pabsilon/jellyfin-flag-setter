@@ -1,6 +1,6 @@
 [project]
 name = "jellyfin-flag-setter"
-version = "2026.4.6"
+version = "2026.4.7"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
