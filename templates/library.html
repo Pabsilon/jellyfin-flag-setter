@@ -31,6 +31,7 @@
   </div>
 
   <div class="lib-controls">
+    <input type="search" id="lib-search" class="lib-search" placeholder="Search titles…">
     <span class="lib-page-info" id="page-info"></span>
     <div class="lib-page-sizes">
       <span class="lib-page-sizes-label">Per page</span>
@@ -129,6 +130,24 @@
     });
 
     render();
+
+    const searchInput = document.getElementById('lib-search');
+    const paginationEls = document.querySelectorAll('.lib-page-info, .lib-page-sizes, .lib-pagination');
+
+    searchInput.addEventListener('input', () => {
+      const q = searchInput.value.trim().toLowerCase();
+      const searching = q.length > 0;
+      paginationEls.forEach(el => { el.hidden = searching; });
+      if (searching) {
+        cards.forEach(card => {
+          const match = card.querySelector('.poster-title').textContent.toLowerCase().includes(q);
+          card.hidden = !match;
+          if (match) loadImg(card);
+        });
+      } else {
+        render();
+      }
+    });
   </script>
 </body>
 </html>

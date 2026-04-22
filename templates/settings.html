@@ -18,77 +18,112 @@
 
   <h1>Settings</h1>
 
-  <h2>Jobs</h2>
-  {% for job in jobs %}
-  <div class="job-card" data-job-id="{{ job.job_id }}">
-    <div class="job-header">
-      <span class="job-label">{{ job.label }}</span>
-      <span class="job-status-dot{% if job.is_running %} job-status-dot--running{% endif %}"></span>
-      <span class="job-status-text">{{ "Running…" if job.is_running else "Idle" }}</span>
+  <div class="settings-tabs">
+    <button class="tab-btn active" data-tab="jobs">Jobs</button>
+    <button class="tab-btn" data-tab="server">Server Management</button>
+    <button class="tab-btn" data-tab="account">Account</button>
+  </div>
+
+  <!-- Jobs tab -->
+  <div class="tab-panel" data-panel="jobs">
+    {% for job in jobs %}
+    <div class="job-card" data-job-id="{{ job.job_id }}">
+      <div class="job-header">
+        <span class="job-label">{{ job.label }}</span>
+        <span class="job-status-dot{% if job.is_running %} job-status-dot--running{% endif %}"></span>
+        <span class="job-status-text">{{ "Running…" if job.is_running else "Idle" }}</span>
+      </div>
+      <div class="job-meta">
+        Last run: <span class="job-last-run" data-iso="{{ job.last_run_at or '' }}">{{ job.last_run_at or "Never" }}</span>
+      </div>
+      <div class="job-controls">
+        <div class="form-group">
+          <label for="interval-{{ job.job_id }}">Interval ({{ job.time_unit }})</label>
+          <input id="interval-{{ job.job_id }}" class="job-interval-input" type="number" min="1"
+                 value="{{ job.interval_display }}" data-job-id="{{ job.job_id }}">
+        </div>
+        <div class="apply-bar">
+          <button class="job-save-interval" data-job-id="{{ job.job_id }}">Save interval</button>
+          <button class="btn-secondary job-run-now" data-job-id="{{ job.job_id }}">Run now</button>
+        </div>
+        <div class="job-feedback" data-job-id="{{ job.job_id }}" hidden></div>
+      </div>
     </div>
-    <div class="job-meta">
-      Last run: <span class="job-last-run" data-iso="{{ job.last_run_at or '' }}">{{ job.last_run_at or "Never" }}</span>
-    </div>
-    <div class="job-controls">
+    {% endfor %}
+  </div>
+
+  <!-- Server Management tab -->
+  <div class="tab-panel" data-panel="server" hidden>
+    <details>
+      <summary>Libraries</summary>
+      {% for lib in libraries %}
+      <div class="job-card" data-library-id="{{ lib.id }}">
+        <div class="job-header">
+          <span class="job-label">{{ lib.name }}</span>
+          <span class="job-status-text">{{ lib.collection_type or "unknown" }}</span>
+        </div>
+        <div class="job-controls">
+          <div class="apply-bar">
+            <button class="lib-exclude-btn" data-library-id="{{ lib.id }}" data-excluded="{{ 'true' if lib.is_excluded else 'false' }}">
+              {{ "Re-include" if lib.is_excluded else "Exclude" }}
+            </button>
+          </div>
+          <div class="job-feedback" data-library-id="{{ lib.id }}" hidden></div>
+        </div>
+      </div>
+      {% endfor %}
+    </details>
+  </div>
+
+  <!-- Account tab -->
+  <div class="tab-panel" data-panel="account" hidden>
+    {% if error %}
+    <div class="form-error">{{ error }}</div>
+    {% endif %}
+    {% if success %}
+    <div class="form-success">{{ success }}</div>
+    {% endif %}
+    <form method="post" action="/settings/password" class="settings-form">
       <div class="form-group">
-        <label for="interval-{{ job.job_id }}">Interval ({{ job.time_unit }})</label>
-        <input id="interval-{{ job.job_id }}" class="job-interval-input" type="number" min="1"
-               value="{{ job.interval_display }}" data-job-id="{{ job.job_id }}">
+        <label for="current_password">Current Password</label>
+        <input id="current_password" name="current_password" type="password" autocomplete="current-password" required>
+      </div>
+      <div class="form-group">
+        <label for="new_password">New Password</label>
+        <input id="new_password" name="new_password" type="password" autocomplete="new-password" required>
+      </div>
+      <div class="form-group">
+        <label for="new_password_confirm">Confirm New Password</label>
+        <input id="new_password_confirm" name="new_password_confirm" type="password" autocomplete="new-password" required>
       </div>
       <div class="apply-bar">
-        <button class="job-save-interval" data-job-id="{{ job.job_id }}">Save interval</button>
-        <button class="btn-secondary job-run-now" data-job-id="{{ job.job_id }}">Run now</button>
+        <button type="submit">Update password</button>
+        <a href="/" class="btn btn-secondary">Cancel</a>
       </div>
-      <div class="job-feedback" data-job-id="{{ job.job_id }}" hidden></div>
-    </div>
+    </form>
   </div>
-  {% endfor %}
-
-  <h2>Libraries</h2>
-  {% for lib in libraries %}
-  <div class="job-card" data-library-id="{{ lib.id }}">
-    <div class="job-header">
-      <span class="job-label">{{ lib.name }}</span>
-      <span class="job-status-text">{{ lib.collection_type or "unknown" }}</span>
-    </div>
-    <div class="job-controls">
-      <div class="apply-bar">
-        <button class="lib-exclude-btn" data-library-id="{{ lib.id }}" data-excluded="{{ 'true' if lib.is_excluded else 'false' }}">
-          {{ "Re-include" if lib.is_excluded else "Exclude" }}
-        </button>
-      </div>
-      <div class="job-feedback" data-library-id="{{ lib.id }}" hidden></div>
-    </div>
-  </div>
-  {% endfor %}
-
-  <h2>Change Password</h2>
-  {% if error %}
-  <div class="form-error">{{ error }}</div>
-  {% endif %}
-  {% if success %}
-  <div class="form-success">{{ success }}</div>
-  {% endif %}
-  <form method="post" action="/settings/password" class="settings-form">
-    <div class="form-group">
-      <label for="current_password">Current Password</label>
-      <input id="current_password" name="current_password" type="password" autocomplete="current-password" required>
-    </div>
-    <div class="form-group">
-      <label for="new_password">New Password</label>
-      <input id="new_password" name="new_password" type="password" autocomplete="new-password" required>
-    </div>
-    <div class="form-group">
-      <label for="new_password_confirm">Confirm New Password</label>
-      <input id="new_password_confirm" name="new_password_confirm" type="password" autocomplete="new-password" required>
-    </div>
-    <div class="apply-bar">
-      <button type="submit">Update password</button>
-      <a href="/" class="btn btn-secondary">Cancel</a>
-    </div>
-  </form>
 
   <script>
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabPanels = document.querySelectorAll('.tab-panel');
+    const VALID_TABS = ['jobs', 'server', 'account'];
+
+    function switchTab(name) {
+      if (!VALID_TABS.includes(name)) name = 'jobs';
+      tabBtns.forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+      tabPanels.forEach(p => { p.hidden = p.dataset.panel !== name; });
+      history.replaceState(null, '', '#' + name);
+    }
+
+    tabBtns.forEach(btn => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
+
+    const hash = location.hash.slice(1);
+    {% if error or success %}
+    switchTab('account');
+    {% elif hash %}
+    switchTab(hash);
+    {% endif %}
+
     // Format ISO dates on load
     document.querySelectorAll('.job-last-run[data-iso]').forEach(el => {
       const iso = el.dataset.iso;

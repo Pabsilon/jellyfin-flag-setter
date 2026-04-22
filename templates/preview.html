@@ -28,20 +28,22 @@
   <h1>{{ movie.name }} ({{ movie.production_year }})</h1>
 
   <h2>Audio tracks</h2>
-  <table>
-    <thead>
-      <tr><th>Language</th><th>Codec</th><th>Title</th></tr>
-    </thead>
-    <tbody>
-      {% for stream in audio_streams %}
-      <tr>
-        <td>{{ stream.language or "—" }}</td>
-        <td>{{ stream.codec or "—" }}</td>
-        <td>{{ stream.display_title or "—" }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="audio-scroll">
+    <table>
+      <thead>
+        <tr><th>Language</th><th>Codec</th><th>Title</th></tr>
+      </thead>
+      <tbody>
+        {% for stream in audio_streams %}
+        <tr>
+          <td>{{ stream.language or "—" }}</td>
+          <td>{{ stream.codec or "—" }}</td>
+          <td>{{ stream.display_title or "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
   <h2>Flags</h2>
   <form id="flag-form">
