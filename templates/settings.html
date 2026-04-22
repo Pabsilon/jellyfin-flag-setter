@@ -54,22 +54,25 @@
 
   <!-- Server Management tab -->
   <div class="tab-panel" data-panel="server" hidden>
-    {% for lib in libraries %}
-    <div class="job-card" data-library-id="{{ lib.id }}">
-      <div class="job-header">
-        <span class="job-label">{{ lib.name }}</span>
-        <span class="job-status-text">{{ lib.collection_type or "unknown" }}</span>
-      </div>
-      <div class="job-controls">
-        <div class="apply-bar">
-          <button class="lib-exclude-btn" data-library-id="{{ lib.id }}" data-excluded="{{ 'true' if lib.is_excluded else 'false' }}">
-            {{ "Re-include" if lib.is_excluded else "Exclude" }}
-          </button>
+    <details>
+      <summary>Libraries</summary>
+      {% for lib in libraries %}
+      <div class="job-card" data-library-id="{{ lib.id }}">
+        <div class="job-header">
+          <span class="job-label">{{ lib.name }}</span>
+          <span class="job-status-text">{{ lib.collection_type or "unknown" }}</span>
         </div>
-        <div class="job-feedback" data-library-id="{{ lib.id }}" hidden></div>
+        <div class="job-controls">
+          <div class="apply-bar">
+            <button class="lib-exclude-btn" data-library-id="{{ lib.id }}" data-excluded="{{ 'true' if lib.is_excluded else 'false' }}">
+              {{ "Re-include" if lib.is_excluded else "Exclude" }}
+            </button>
+          </div>
+          <div class="job-feedback" data-library-id="{{ lib.id }}" hidden></div>
+        </div>
       </div>
-    </div>
-    {% endfor %}
+      {% endfor %}
+    </details>
   </div>
 
   <!-- Account tab -->
