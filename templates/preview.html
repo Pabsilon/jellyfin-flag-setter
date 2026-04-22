@@ -133,6 +133,11 @@
 
     document.querySelectorAll('#flag-form input[type=checkbox]').forEach(cb => cb.addEventListener('change', syncApplyFlags));
     syncApplyFlags();
+
+    document.addEventListener('keydown', function (e) {
+      if (document.activeElement === document.getElementById('flag-search')) return;
+      if (e.key === 'j') document.querySelector('form[action*="/apply"]').submit();
+    });
   </script>
 </body>
 </html>
