@@ -47,18 +47,30 @@ class JellyfinClient:
     ) -> list[MovieItem]:
         user_id = await self._get_user_id()
         response = await self._http.get(
-            f"/Users/{user_id}/Items/Latest",
+            f"/Users/{user_id}/Items",
             params={
                 "parentId": library_id,
                 "IncludeItemTypes": item_types,
-                "Fields": "MediaStreams",
+                "SortBy": "DateCreated",
+                "SortOrder": "Descending",
+                "Recursive": "true",
                 "Limit": limit,
             },
         )
         response.raise_for_status()
-        return [
-            MovieItem.model_validate(item, strict=False) for item in response.json()
-        ]
+        return ItemsResponse.model_validate_json(response.content, strict=False).items
+
+    async def get_items_by_ids(self, item_ids: list[str]) -> list[MovieItem]:
+        user_id = await self._get_user_id()
+        response = await self._http.get(
+            f"/Users/{user_id}/Items",
+            params={
+                "Ids": ",".join(item_ids),
+                "Fields": "MediaStreams",
+            },
+        )
+        response.raise_for_status()
+        return ItemsResponse.model_validate_json(response.content, strict=False).items
 
     async def get_library_items(
         self, library_id: str, item_types: str = "Movie"
