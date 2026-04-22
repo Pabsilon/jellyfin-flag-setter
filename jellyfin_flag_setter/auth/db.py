@@ -26,7 +26,21 @@ def get_engine():
 
 
 def create_tables() -> None:
-    SQLModel.metadata.create_all(_get_engine())
+    engine = _get_engine()
+    SQLModel.metadata.create_all(engine)
+    _migrate(engine)
+
+
+def _migrate(engine) -> None:
+    with engine.connect() as conn:
+        existing = {
+            row[1] for row in conn.exec_driver_sql("PRAGMA table_info(library)")
+        }
+        if "is_excluded" not in existing:
+            conn.exec_driver_sql(
+                "ALTER TABLE library ADD COLUMN is_excluded BOOLEAN NOT NULL DEFAULT 0"
+            )
+            conn.commit()
 
 
 def get_session() -> Generator[Session]:

@@ -44,6 +44,24 @@
   </div>
   {% endfor %}
 
+  <h2>Libraries</h2>
+  {% for lib in libraries %}
+  <div class="job-card" data-library-id="{{ lib.id }}">
+    <div class="job-header">
+      <span class="job-label">{{ lib.name }}</span>
+      <span class="job-status-text">{{ lib.collection_type or "unknown" }}</span>
+    </div>
+    <div class="job-controls">
+      <div class="apply-bar">
+        <button class="lib-exclude-btn" data-library-id="{{ lib.id }}" data-excluded="{{ 'true' if lib.is_excluded else 'false' }}">
+          {{ "Re-include" if lib.is_excluded else "Exclude" }}
+        </button>
+      </div>
+      <div class="job-feedback" data-library-id="{{ lib.id }}" hidden></div>
+    </div>
+  </div>
+  {% endfor %}
+
   <h2>Change Password</h2>
   {% if error %}
   <div class="form-error">{{ error }}</div>
@@ -125,6 +143,29 @@
     });
 
     pollJobs();
+
+    document.querySelectorAll('.lib-exclude-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const libId = btn.dataset.libraryId;
+        const currentlyExcluded = btn.dataset.excluded === 'true';
+        const newExcluded = !currentlyExcluded;
+        const data = new FormData();
+        data.append('excluded', newExcluded);
+        const resp = await fetch(`/api/libraries/${libId}/excluded`, { method: 'POST', body: data });
+        const feedback = document.querySelector(`.job-feedback[data-library-id="${libId}"]`);
+        if (resp.ok) {
+          btn.dataset.excluded = newExcluded ? 'true' : 'false';
+          btn.textContent = newExcluded ? 'Re-include' : 'Exclude';
+          feedback.textContent = newExcluded ? 'Library excluded.' : 'Library re-included.';
+          feedback.className = 'job-feedback form-success';
+        } else {
+          feedback.textContent = 'Failed to update.';
+          feedback.className = 'job-feedback form-error';
+        }
+        feedback.hidden = false;
+        setTimeout(() => { feedback.hidden = true; }, 4000);
+      });
+    });
   </script>
 </body>
 </html>

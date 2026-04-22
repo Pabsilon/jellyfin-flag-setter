@@ -86,10 +86,17 @@ async def settings_page(
     current_user: User = Depends(get_current_user),
 ):
     jobs = request.app.state.job_manager.list_statuses()
+    libraries = request.app.state.libraries
     return templates.TemplateResponse(
         request,
         "settings.html",
-        {"user": current_user, "success": None, "error": None, "jobs": jobs},
+        {
+            "user": current_user,
+            "success": None,
+            "error": None,
+            "jobs": jobs,
+            "libraries": libraries,
+        },
     )
 
 
@@ -112,6 +119,7 @@ async def change_password(
                 "error": "Current password is incorrect",
                 "success": None,
                 "jobs": jobs,
+                "libraries": request.app.state.libraries,
             },
             status_code=400,
         )
@@ -124,6 +132,7 @@ async def change_password(
                 "error": "New passwords do not match",
                 "success": None,
                 "jobs": jobs,
+                "libraries": request.app.state.libraries,
             },
             status_code=400,
         )
@@ -136,6 +145,7 @@ async def change_password(
                 "error": "Password must be at least 8 characters",
                 "success": None,
                 "jobs": jobs,
+                "libraries": request.app.state.libraries,
             },
             status_code=400,
         )
@@ -150,5 +160,6 @@ async def change_password(
             "success": "Password updated successfully",
             "error": None,
             "jobs": jobs,
+            "libraries": request.app.state.libraries,
         },
     )

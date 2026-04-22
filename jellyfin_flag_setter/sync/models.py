@@ -14,6 +14,7 @@ class DBLibrary(SQLModel, table=True):
     collection_type: str | None = None
     last_full_sync_at: datetime | None = None
     last_recent_sync_at: datetime | None = None
+    is_excluded: bool = False
 
 
 class DBMediaItem(SQLModel, table=True):
@@ -44,3 +45,4 @@ class LibraryWithItems:
     collection_type: str | None
     items: list[MovieItem] = field(default_factory=list)
     edited_item_ids: set[str] = field(default_factory=set)
+    is_excluded: bool = False
