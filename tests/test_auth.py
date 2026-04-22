@@ -16,6 +16,7 @@ PROTECTED_POST_ROUTES = [
     ("/settings/password", {}),
     ("/api/jobs/library_sync/run", {}),
     ("/api/jobs/library_sync/interval", {"interval_minutes": "60"}),
+    ("/api/libraries/lib1/excluded", {"excluded": "true"}),
 ]
 
 
