@@ -14,7 +14,12 @@
       {% if error %}
       <div class="form-error">{{ error }}</div>
       {% endif %}
-      <form method="post" action="/setup/jellyfin">
+      <div id="syncing-msg" hidden>
+        <p class="auth-hint" style="margin-top: 0.5rem;">
+          Connected! Syncing your library — this may take a moment&hellip;
+        </p>
+      </div>
+      <form id="setup-form" method="post" action="/setup/jellyfin">
         <div class="form-group">
           <label for="jellyfin_url">Server URL</label>
           <input id="jellyfin_url" name="jellyfin_url" type="url" placeholder="http://192.168.1.100:8096" autofocus required>
@@ -23,12 +28,24 @@
           <label for="jellyfin_api_key">API Key</label>
           <input id="jellyfin_api_key" name="jellyfin_api_key" type="text" placeholder="Your Jellyfin API key" required>
         </div>
-        <button type="submit" class="form-submit">Connect</button>
+        <button id="submit-btn" type="submit" class="form-submit">Connect</button>
       </form>
       <p class="auth-hint" style="margin-top: 1rem; font-size: 0.8em;">
         Generate an API key in Jellyfin under Dashboard → API Keys.
       </p>
     </div>
   </div>
+  <script>
+    document.getElementById('setup-form').addEventListener('submit', function () {
+      document.getElementById('submit-btn').disabled = true;
+      document.getElementById('submit-btn').textContent = 'Connecting…';
+      document.getElementById('syncing-msg').hidden = true;
+
+      setTimeout(function () {
+        document.getElementById('syncing-msg').hidden = false;
+        document.getElementById('submit-btn').textContent = 'Syncing…';
+      }, 1500);
+    });
+  </script>
 </body>
 </html>
