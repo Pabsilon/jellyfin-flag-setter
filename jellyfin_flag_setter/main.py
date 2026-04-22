@@ -9,16 +9,17 @@ from fastapi import Depends, FastAPI, Form, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlmodel import Session
+from sqlmodel import Session, select
 from starlette.middleware.sessions import SessionMiddleware
 
 from jellyfin_flag_setter.auth.db import create_tables, get_engine
 from jellyfin_flag_setter.auth.dependencies import (
+    RequiresJellyfinSetup,
     RequiresLogin,
     RequiresSetup,
     get_current_user,
 )
-from jellyfin_flag_setter.auth.models import User
+from jellyfin_flag_setter.auth.models import ServerConfig, User
 from jellyfin_flag_setter.auth.router import router as auth_router
 from jellyfin_flag_setter.config import settings
 from jellyfin_flag_setter.flags.composer import compose_flags, is_edited, mark_as_edited
@@ -202,10 +203,10 @@ async def _sync_libraries(app: FastAPI) -> None:
     )
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    create_tables()
-    app.state.jellyfin = JellyfinClient()
+async def _init_jellyfin(app: FastAPI, config: ServerConfig) -> None:
+    client = JellyfinClient(config.jellyfin_url, config.jellyfin_api_key)
+    app.state.jellyfin = client
+
     with Session(get_engine()) as session:
         libraries = load_libraries(session)
     if libraries:
@@ -214,8 +215,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             "Loaded %d items from DB across %d libraries", total, len(libraries)
         )
     else:
-        libraries = await _load_libraries(app.state.jellyfin)
-        edited_map = await _check_all_posters(app.state.jellyfin, libraries)
+        libraries = await _load_libraries(client)
+        edited_map = await _check_all_posters(client, libraries)
         _apply_edited_map(libraries, edited_map)
         with Session(get_engine()) as session:
             save_libraries(session, libraries)
@@ -224,25 +225,44 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
             "Synced %d items from Jellyfin across %d libraries", total, len(libraries)
         )
     app.state.libraries = libraries
-    job_manager = JobManager()
-    job_manager.register(
+
+    job_manager: JobManager = app.state.job_manager
+    job_manager.register_and_start(
         "library_sync",
         "Library Sync",
         lambda: _sync_libraries(app),
         default_interval=_LIBRARY_REFRESH_DEFAULT_INTERVAL,
         time_unit="hours",
     )
-    job_manager.register(
+    job_manager.register_and_start(
         "recent_sync",
         "Recent Sync",
         lambda: _sync_recent(app),
         default_interval=_RECENT_SYNC_DEFAULT_INTERVAL,
     )
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    create_tables()
+    app.state.jellyfin = None
+    app.state.libraries = []
+
+    job_manager = JobManager()
     app.state.job_manager = job_manager
     job_manager.start(get_engine())
+
+    with Session(get_engine()) as session:
+        server_config = session.exec(select(ServerConfig)).first()
+
+    if server_config:
+        await _init_jellyfin(app, server_config)
+
     yield
+
     await job_manager.stop()
-    await app.state.jellyfin.aclose()
+    if app.state.jellyfin:
+        await app.state.jellyfin.aclose()
 
 
 app = FastAPI(title="Jellyfin Flag Setter", lifespan=lifespan)
@@ -263,6 +283,52 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(auth_router)
 app.include_router(jobs_router)
 templates = Jinja2Templates(directory="templates")
+
+
+@app.get("/setup/jellyfin")
+async def setup_jellyfin_page(request: Request):
+    if not request.session.get("user_id"):
+        return RedirectResponse("/login", status_code=302)
+    with Session(get_engine()) as session:
+        if session.exec(select(ServerConfig)).first():
+            return RedirectResponse("/", status_code=302)
+    return templates.TemplateResponse(request, "setup_jellyfin.html", {"error": None})
+
+
+@app.post("/setup/jellyfin")
+async def setup_jellyfin(
+    request: Request,
+    jellyfin_url: str = Form(),
+    jellyfin_api_key: str = Form(),
+):
+    if not request.session.get("user_id"):
+        return RedirectResponse("/login", status_code=302)
+    with Session(get_engine()) as session:
+        if session.exec(select(ServerConfig)).first():
+            return RedirectResponse("/", status_code=302)
+
+    url = jellyfin_url.rstrip("/")
+    test_client = JellyfinClient(url, jellyfin_api_key)
+    try:
+        await test_client.get_libraries()
+    except Exception as e:
+        await test_client.aclose()
+        return templates.TemplateResponse(
+            request,
+            "setup_jellyfin.html",
+            {"error": f"Could not connect to Jellyfin: {e}"},
+            status_code=400,
+        )
+    await test_client.aclose()
+
+    with Session(get_engine()) as session:
+        config = ServerConfig(jellyfin_url=url, jellyfin_api_key=jellyfin_api_key)
+        session.add(config)
+        session.commit()
+        session.refresh(config)
+
+    await _init_jellyfin(request.app, config)
+    return RedirectResponse("/", status_code=303)
 
 
 @app.post("/api/libraries/{library_id}/excluded")
@@ -291,6 +357,11 @@ async def _requires_login(request: Request, exc: RequiresLogin):
 @app.exception_handler(RequiresSetup)
 async def _requires_setup(request: Request, exc: RequiresSetup):
     return RedirectResponse("/setup", status_code=302)
+
+
+@app.exception_handler(RequiresJellyfinSetup)
+async def _requires_jellyfin_setup(request: Request, exc: RequiresJellyfinSetup):
+    return RedirectResponse("/setup/jellyfin", status_code=302)
 
 
 def _get_client(request: Request) -> JellyfinClient:
