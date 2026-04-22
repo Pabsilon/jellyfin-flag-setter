@@ -508,6 +508,19 @@ figure img {
 .poster-card--edited { opacity: 0.45; }
 
 /* ── Library view controls ── */
+.lib-search {
+  padding: 0.4rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.875rem;
+  width: 200px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.lib-search:focus { border-color: var(--accent); }
+
 .lib-controls {
   display: flex;
   align-items: center;
