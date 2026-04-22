@@ -121,6 +121,25 @@ ul.movie-list li .meta {
 }
 .back-link:hover { color: var(--accent-hov); text-decoration: none; }
 
+/* ── Scrollable audio track container ── */
+.audio-scroll {
+  max-height: 12.5rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 1.5rem;
+}
+.audio-scroll > table {
+  border: none;
+  border-radius: 0;
+  margin-bottom: 0;
+}
+.audio-scroll thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-2);
+}
+
 /* ── Table ── */
 table {
   width: 100%;
