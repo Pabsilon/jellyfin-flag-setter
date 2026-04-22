@@ -4,7 +4,13 @@ import respx
 from starlette.testclient import TestClient
 
 from jellyfin_flag_setter.main import app
-from tests.conftest import _SETUP_DATA, FAKE_MOVIE, TINY_JPEG, setup_base_routes
+from tests.conftest import (
+    _JELLYFIN_DATA,
+    _SETUP_DATA,
+    FAKE_MOVIE,
+    TINY_JPEG,
+    setup_base_routes,
+)
 
 
 @pytest.fixture
@@ -26,6 +32,7 @@ def auth_client_poster_404():
         router.get("/Items/movie1/Images/Primary").mock(side_effect=poster_side_effect)
         with TestClient(app, raise_server_exceptions=False) as c:
             c.post("/setup", data=_SETUP_DATA)
+            c.post("/setup/jellyfin", data=_JELLYFIN_DATA)
             yield c
 
 
@@ -39,6 +46,7 @@ def auth_client_movie_404():
         )
         with TestClient(app, raise_server_exceptions=False) as c:
             c.post("/setup", data=_SETUP_DATA)
+            c.post("/setup/jellyfin", data=_JELLYFIN_DATA)
             yield c
 
 

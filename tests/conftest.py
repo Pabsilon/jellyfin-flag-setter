@@ -1,8 +1,5 @@
 import os
 
-# Must be set before any app imports so pydantic-settings reads them
-os.environ.setdefault("JELLYFIN_URL", "http://fake-jellyfin")
-os.environ.setdefault("JELLYFIN_API_KEY", "test-api-key")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-32chars-xxxxxxxxxxx")
 
 import pytest
@@ -86,8 +83,15 @@ def client(fake_jellyfin):
         yield c
 
 
+_JELLYFIN_DATA = {
+    "jellyfin_url": "http://fake-jellyfin",
+    "jellyfin_api_key": "test-api-key",
+}
+
+
 @pytest.fixture
 def auth_client(fake_jellyfin):
     with TestClient(app, raise_server_exceptions=False) as c:
         c.post("/setup", data=_SETUP_DATA)
+        c.post("/setup/jellyfin", data=_JELLYFIN_DATA)
         yield c

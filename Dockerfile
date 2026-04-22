@@ -18,8 +18,6 @@ COPY templates/ templates/
 RUN mkdir -p data
 
 ENV MAGICK_HOME=/usr
-ENV JELLYFIN_URL=""
-ENV JELLYFIN_API_KEY=""
 ENV SECRET_KEY=""
 ENV DB_PATH="data/flagsetter.db"
 

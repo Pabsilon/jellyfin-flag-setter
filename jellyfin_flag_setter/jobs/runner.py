@@ -47,6 +47,19 @@ class JobManager:
         for job_id in self._jobs:
             self._loop_tasks[job_id] = asyncio.create_task(self._run_loop(job_id))
 
+    def register_and_start(
+        self,
+        job_id: str,
+        label: str,
+        fn: Callable[[], Awaitable[None]],
+        default_interval: int = 3600,
+        time_unit: Literal["minutes", "hours"] = "minutes",
+    ) -> None:
+        """Register a job and immediately start its loop.
+        Requires start() to have been called."""
+        self.register(job_id, label, fn, default_interval, time_unit)
+        self._loop_tasks[job_id] = asyncio.create_task(self._run_loop(job_id))
+
     async def stop(self) -> None:
         for task in self._loop_tasks.values():
             task.cancel()

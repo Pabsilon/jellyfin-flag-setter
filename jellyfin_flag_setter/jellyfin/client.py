@@ -2,7 +2,6 @@ import base64
 
 import httpx
 
-from jellyfin_flag_setter.config import settings
 from jellyfin_flag_setter.jellyfin.models import (
     ItemsResponse,
     LibrariesResponse,
@@ -12,13 +11,10 @@ from jellyfin_flag_setter.jellyfin.models import (
 
 
 class JellyfinClient:
-    def __init__(self) -> None:
+    def __init__(self, url: str, api_key: str) -> None:
         self._http = httpx.AsyncClient(
-            base_url=settings.jellyfin_url,
-            headers={
-                "X-Emby-Authorization": f"MediaBrowser "
-                f'Token="{settings.jellyfin_api_key}"'
-            },
+            base_url=url,
+            headers={"X-Emby-Authorization": f'MediaBrowser Token="{api_key}"'},
             timeout=300.0,
         )
         self._user_id: str | None = None
