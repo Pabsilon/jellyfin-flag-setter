@@ -53,17 +53,7 @@
     {% endif %}
 
     {% if edited %}
-    <details class="edited-section">
-      <summary>{{ edited | length }} already edited</summary>
-      <div class="poster-grid poster-grid--edited">
-        {% for movie in edited %}
-        <a href="/movie/{{ movie.id }}" class="poster-card" data-pos="{{ loop.index0 }}">
-          <img data-src="/movie/{{ movie.id }}/poster/original" alt="{{ movie.name }}">
-          <span class="poster-title">{{ movie.name }} <span class="poster-year">({{ movie.production_year }})</span></span>
-        </a>
-        {% endfor %}
-      </div>
-    </details>
+    <a href="/library/{{ library.id }}" class="edited-link">{{ edited | length }} already edited — view in library →</a>
     {% endif %}
 
     {% if not library.items %}
@@ -88,13 +78,6 @@
         if (!beyond) loadImg(card);
       });
     }
-
-    // Load edited posters only when the <details> is opened
-    document.querySelectorAll('.edited-section').forEach(details => {
-      details.addEventListener('toggle', () => {
-        if (details.open) details.querySelectorAll('.poster-card').forEach(loadImg);
-      });
-    });
 
     const saved = parseInt(localStorage.getItem(STORAGE_KEY), 10);
     const initial = isNaN(saved) ? 20 : saved;

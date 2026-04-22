@@ -498,28 +498,13 @@ figure img {
 .poster-year { color: #aaa; }
 
 /* ── Edited section ── */
-.edited-section {
-  margin-top: 0.5rem;
-}
-.edited-section > summary {
-  list-style: none;
-  cursor: pointer;
+.edited-link {
+  display: inline-block;
+  margin-top: 0.4rem;
   font-size: 0.8rem;
   color: var(--text-muted);
-  user-select: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.25rem 0;
 }
-.edited-section > summary::before {
-  content: '▶';
-  font-size: 0.6em;
-  transition: transform 0.15s;
-}
-.edited-section[open] > summary::before { transform: rotate(90deg); }
-.edited-section > summary::-webkit-details-marker { display: none; }
-.poster-grid--edited { opacity: 0.45; margin-top: 0.5rem; }
+.edited-link:hover { color: var(--accent); text-decoration: none; }
 .poster-card--edited { opacity: 0.45; }
 
 /* ── Library view controls ── */
