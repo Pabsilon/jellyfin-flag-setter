@@ -417,6 +417,24 @@ async def library_view(
     )
 
 
+@app.get("/library/{library_id}/done")
+async def library_done(
+    request: Request,
+    library_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    library = next(
+        (lib for lib in _get_libraries(request) if lib.id == library_id), None
+    )
+    if library is None:
+        return RedirectResponse("/", status_code=302)
+    return templates.TemplateResponse(
+        request,
+        "library_done.html",
+        {"library": library, "user": current_user},
+    )
+
+
 @app.get("/movie/{item_id}")
 async def movie_preview(
     request: Request,
@@ -429,11 +447,22 @@ async def movie_preview(
         client.get_movie(item_id),
         client.get_poster(item_id),
     )
-    ids = [m.id for m in _get_movies(request)]
-    try:
-        idx = ids.index(item_id)
-        next_id = ids[idx + 1] if idx + 1 < len(ids) else None
-    except ValueError:
+    library = next(
+        (
+            lib
+            for lib in _get_libraries(request)
+            if any(item.id == item_id for item in lib.items)
+        ),
+        None,
+    )
+    if library:
+        lib_ids = [m.id for m in library.items]
+        try:
+            idx = lib_ids.index(item_id)
+            next_id = lib_ids[idx + 1] if idx + 1 < len(lib_ids) else None
+        except ValueError:
+            next_id = None
+    else:
         next_id = None
 
     audio_streams = [s for s in movie.media_streams if s.type == "Audio"]
@@ -450,6 +479,7 @@ async def movie_preview(
             "all_flags": ALL_FLAGS,
             "preview_qs": preview_qs,
             "next_id": next_id,
+            "library": library,
             "already_edited": is_edited(poster),
             "back": back,
             "user": current_user,
@@ -496,6 +526,7 @@ async def apply_flags(
     request: Request,
     flags: list[str] = Form(default=[]),
     next_id: str | None = Form(default=None),
+    library_id: str | None = Form(default=None),
     _: User = Depends(get_current_user),
 ):
     client = _get_client(request)
@@ -508,5 +539,10 @@ async def apply_flags(
         if any(item.id == item_id for item in lib.items):
             lib.edited_item_ids.add(item_id)
             break
-    redirect_url = f"/movie/{next_id}" if next_id else "/"
+    if next_id:
+        redirect_url = f"/movie/{next_id}"
+    elif library_id:
+        redirect_url = f"/library/{library_id}/done"
+    else:
+        redirect_url = "/"
     return RedirectResponse(url=redirect_url, status_code=303)

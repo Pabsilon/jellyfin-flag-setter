@@ -81,6 +81,7 @@
 
   <form method="post" action="/movie/{{ movie.id }}/apply">
     {% if next_id %}<input type="hidden" name="next_id" value="{{ next_id }}">{% endif %}
+    {% if library %}<input type="hidden" name="library_id" value="{{ library.id }}">{% endif %}
     <div id="apply-flags"></div>
     <div class="apply-bar">
       <button type="submit" id="apply-btn">Apply</button>

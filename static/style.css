@@ -657,3 +657,23 @@ figure img {
   margin-top: 0.6rem;
   font-size: 0.85rem;
 }
+
+/* ── Library done screen ── */
+.done-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+  gap: 1rem;
+}
+.done-icon {
+  font-size: 4rem;
+  line-height: 1;
+}
+.done-subtitle {
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  margin: 0;
+}
