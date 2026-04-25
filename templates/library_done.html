@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ library.name }} – Done!</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <nav class="nav-bar">
+    <a href="/" class="nav-brand">Jellyfin Flag Setter</a>
+    <div class="nav-actions">
+      <span class="nav-user">{{ user.username }}</span>
+      <a href="/settings" class="btn btn-secondary btn-sm">Settings</a>
+      <a href="/logout" class="btn btn-secondary btn-sm">Logout</a>
+    </div>
+  </nav>
+
+  <div class="done-screen">
+    <div class="done-icon">🎉</div>
+    <h1>All done!</h1>
+    <p class="done-subtitle">You finished the <strong>{{ library.name }}</strong> library.</p>
+    <a href="/" class="btn">Back to home</a>
+  </div>
+</body>
+</html>
