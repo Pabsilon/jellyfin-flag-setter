@@ -87,6 +87,21 @@ class JellyfinClient:
         response.raise_for_status()
         return ItemsResponse.model_validate_json(response.content, strict=False).items
 
+    async def get_series_episodes(self, series_id: str) -> list[MovieItem]:
+        user_id = await self._get_user_id()
+        response = await self._http.get(
+            "/Items",
+            params={
+                "userId": user_id,
+                "parentId": series_id,
+                "IncludeItemTypes": "Episode",
+                "Recursive": "true",
+                "Fields": "MediaStreams",
+            },
+        )
+        response.raise_for_status()
+        return ItemsResponse.model_validate_json(response.content, strict=False).items
+
     async def get_movie(self, item_id: str) -> MovieItem:
         user_id = await self._get_user_id()
         response = await self._http.get(
