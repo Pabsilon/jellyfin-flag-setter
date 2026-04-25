@@ -26,6 +26,7 @@ from jellyfin_flag_setter.flags.composer import compose_flags, is_edited, mark_a
 from jellyfin_flag_setter.flags.mapping import (
     ALL_FLAGS,
     KNOWN_FLAGS,
+    LANGUAGE_TO_FLAG,
     languages_to_flags,
 )
 from jellyfin_flag_setter.jellyfin.client import JellyfinClient
@@ -541,6 +542,145 @@ async def apply_flags(
             break
     if next_id:
         redirect_url = f"/movie/{next_id}"
+    elif library_id:
+        redirect_url = f"/library/{library_id}/done"
+    else:
+        redirect_url = "/"
+    return RedirectResponse(url=redirect_url, status_code=303)
+
+
+@app.get("/api/show/{item_id}/language-analysis")
+async def show_language_analysis(
+    item_id: str,
+    request: Request,
+    _: User = Depends(get_current_user),
+) -> JSONResponse:
+    from collections import Counter
+
+    episodes = await _get_client(request).get_series_episodes(item_id)
+    if not episodes:
+        return JSONResponse([])
+
+    lang_counts: Counter[str] = Counter()
+    for ep in episodes:
+        ep_langs = {
+            s.language for s in ep.media_streams if s.type == "Audio" and s.language
+        }
+        lang_counts.update(ep_langs)
+
+    total = len(episodes)
+    results = [
+        {
+            "language": lang,
+            "flag": LANGUAGE_TO_FLAG.get(lang),
+            "count": count,
+            "pct": round(count / total * 100),
+        }
+        for lang, count in lang_counts.most_common(3)
+    ]
+    return JSONResponse(results)
+
+
+@app.get("/show/{item_id}")
+async def show_preview(
+    request: Request,
+    item_id: str,
+    back: str = "/",
+    current_user: User = Depends(get_current_user),
+):
+    client = _get_client(request)
+    show, poster = await asyncio.gather(
+        client.get_movie(item_id),
+        client.get_poster(item_id),
+    )
+    library = next(
+        (
+            lib
+            for lib in _get_libraries(request)
+            if any(item.id == item_id for item in lib.items)
+        ),
+        None,
+    )
+    if library:
+        lib_ids = [m.id for m in library.items]
+        try:
+            idx = lib_ids.index(item_id)
+            next_id = lib_ids[idx + 1] if idx + 1 < len(lib_ids) else None
+        except ValueError:
+            next_id = None
+    else:
+        next_id = None
+
+    return templates.TemplateResponse(
+        request,
+        "show_preview.html",
+        {
+            "show": show,
+            "known_flags": KNOWN_FLAGS,
+            "all_flags": ALL_FLAGS,
+            "next_id": next_id,
+            "library": library,
+            "already_edited": is_edited(poster),
+            "back": back,
+            "user": current_user,
+        },
+    )
+
+
+@app.get("/show/{item_id}/poster/original")
+async def show_poster_original(
+    item_id: str, request: Request, _: User = Depends(get_current_user)
+):
+    data = await _get_client(request).get_poster(item_id)
+    edited = is_edited(data)
+    for lib in _get_libraries(request):
+        if any(item.id == item_id for item in lib.items):
+            was_edited = item_id in lib.edited_item_ids
+            if edited != was_edited:
+                lib.edited_item_ids.add(
+                    item_id
+                ) if edited else lib.edited_item_ids.discard(item_id)
+                with Session(get_engine()) as session:
+                    mark_item_edited(
+                        session, item_id
+                    ) if edited else mark_item_unedited(session, item_id)
+            break
+    return Response(content=data, media_type="image/jpeg")
+
+
+@app.get("/show/{item_id}/poster/preview")
+async def show_poster_preview(
+    item_id: str,
+    request: Request,
+    flags: list[str] = Query(default=[]),
+    _: User = Depends(get_current_user),
+):
+    poster = await _get_client(request).get_poster(item_id)
+    composed = compose_flags(poster, flags)
+    return Response(content=composed, media_type="image/jpeg")
+
+
+@app.post("/show/{item_id}/apply")
+async def show_apply_flags(
+    item_id: str,
+    request: Request,
+    flags: list[str] = Form(default=[]),
+    next_id: str | None = Form(default=None),
+    library_id: str | None = Form(default=None),
+    _: User = Depends(get_current_user),
+):
+    client = _get_client(request)
+    poster = await client.get_poster(item_id)
+    composed = mark_as_edited(compose_flags(poster, flags))
+    await client.upload_poster(item_id, composed)
+    with Session(get_engine()) as session:
+        mark_item_edited(session, item_id)
+    for lib in _get_libraries(request):
+        if any(item.id == item_id for item in lib.items):
+            lib.edited_item_ids.add(item_id)
+            break
+    if next_id:
+        redirect_url = f"/show/{next_id}"
     elif library_id:
         redirect_url = f"/library/{library_id}/done"
     else:

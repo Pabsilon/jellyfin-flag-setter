@@ -46,15 +46,16 @@
   </div>
 
   <div class="poster-grid" id="poster-grid">
+    {% set item_route = "show" if library.collection_type == "tvshows" else "movie" %}
     {% for movie in unedited %}
-    <a href="/movie/{{ movie.id }}?back=/library/{{ library.id }}" class="poster-card" data-pos="{{ loop.index0 }}">
-      <img data-src="/movie/{{ movie.id }}/poster/original" alt="{{ movie.name }}">
+    <a href="/{{ item_route }}/{{ movie.id }}?back=/library/{{ library.id }}" class="poster-card" data-pos="{{ loop.index0 }}">
+      <img data-src="/{{ item_route }}/{{ movie.id }}/poster/original" alt="{{ movie.name }}">
       <span class="poster-title">{{ movie.name }} <span class="poster-year">({{ movie.production_year }})</span></span>
     </a>
     {% endfor %}
     {% for movie in edited %}
-    <a href="/movie/{{ movie.id }}?back=/library/{{ library.id }}" class="poster-card poster-card--edited" data-pos="{{ unedited | length + loop.index0 }}">
-      <img data-src="/movie/{{ movie.id }}/poster/original" alt="{{ movie.name }}">
+    <a href="/{{ item_route }}/{{ movie.id }}?back=/library/{{ library.id }}" class="poster-card poster-card--edited" data-pos="{{ unedited | length + loop.index0 }}">
+      <img data-src="/{{ item_route }}/{{ movie.id }}/poster/original" alt="{{ movie.name }}">
       <span class="poster-title">{{ movie.name }} <span class="poster-year">({{ movie.production_year }})</span></span>
     </a>
     {% endfor %}

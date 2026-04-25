@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ show.name }} — Flag Setter</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <nav class="nav-bar">
+    <a href="/" class="nav-brand">Jellyfin Flag Setter</a>
+    <div class="nav-actions">
+      <span class="nav-user">{{ user.username }}</span>
+      <a href="/settings" class="btn btn-secondary btn-sm">Settings</a>
+      <a href="/logout" class="btn btn-secondary btn-sm">Logout</a>
+    </div>
+  </nav>
+
+  <a class="back-link" href="{{ back }}">← Back</a>
+
+  {% if already_edited %}
+  <div class="warning-banner">
+    This poster has already been edited.
+    {% if next_id %}<a href="/show/{{ next_id }}" class="btn btn-secondary">Skip</a>{% endif %}
+  </div>
+  {% endif %}
+
+  <h1>{{ show.name }} ({{ show.production_year }})</h1>
+
+  <h2>Episode language analysis</h2>
+  <div class="analyze-row">
+    <button type="button" id="analyze-btn" onclick="analyzeEpisodes()">Analyze episodes</button>
+    <div id="analyze-results" hidden></div>
+  </div>
+
+  <h2>Flags</h2>
+  <form id="flag-form">
+    <div id="known-flags">
+      {% for flag in known_flags %}
+      <label>
+        <input type="checkbox" name="flags" value="{{ flag }}">
+        {{ flag }}
+      </label>
+      {% endfor %}
+    </div>
+
+    <div class="search-row">
+      <input id="flag-search" type="search" placeholder="Search flag…" autocomplete="off">
+      <ul id="flag-results"></ul>
+    </div>
+
+    <button type="button" onclick="refreshPreview()" style="margin-top: 0.9rem;">Refresh preview</button>
+  </form>
+
+  <div class="poster-row">
+    <figure>
+      <figcaption>Current poster</figcaption>
+      <img src="/show/{{ show.id }}/poster/original" alt="Original poster" height="400">
+    </figure>
+    <figure>
+      <figcaption>Preview</figcaption>
+      <img id="preview-img"
+           src="/show/{{ show.id }}/poster/preview"
+           alt="Preview with flags"
+           height="400">
+    </figure>
+  </div>
+
+  <form method="post" action="/show/{{ show.id }}/apply">
+    {% if next_id %}<input type="hidden" name="next_id" value="{{ next_id }}">{% endif %}
+    {% if library %}<input type="hidden" name="library_id" value="{{ library.id }}">{% endif %}
+    <div id="apply-flags"></div>
+    <div class="apply-bar">
+      <button type="submit" id="apply-btn">Apply</button>
+      <a href="{{ back }}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+
+  <script>
+    const ALL_FLAGS = {{ all_flags | tojson }};
+    const KNOWN_FLAGS = {{ known_flags | tojson }};
+
+    function checkedFlags() {
+      return [...document.querySelectorAll('#flag-form input[type=checkbox]:checked')].map(el => el.value);
+    }
+
+    function refreshPreview() {
+      const flags = checkedFlags();
+      const qs = flags.map(f => `flags=${encodeURIComponent(f)}`).join('&');
+      document.getElementById('preview-img').src = `/show/{{ show.id }}/poster/preview?${qs}`;
+    }
+
+    function syncApplyFlags() {
+      const flags = checkedFlags();
+      const container = document.getElementById('apply-flags');
+      container.innerHTML = flags.map(f => `<input type="hidden" name="flags" value="${f}">`).join('');
+      document.getElementById('apply-btn').disabled = false;
+    }
+
+    function addFlag(code) {
+      const existing = document.querySelector(`#flag-form input[value="${code}"]`);
+      if (existing) {
+        existing.checked = true;
+      } else {
+        const label = document.createElement('label');
+        label.innerHTML = `<input type="checkbox" name="flags" value="${code}" checked> ${code}`;
+        label.querySelector('input').addEventListener('change', syncApplyFlags);
+        document.getElementById('known-flags').appendChild(label);
+      }
+      syncApplyFlags();
+      document.getElementById('flag-search').value = '';
+      document.getElementById('flag-results').innerHTML = '';
+    }
+
+    document.getElementById('flag-search').addEventListener('input', function () {
+      const q = this.value.trim().toLowerCase();
+      const results = document.getElementById('flag-results');
+      if (!q) { results.innerHTML = ''; return; }
+      const matches = ALL_FLAGS.filter(f => f.includes(q)).slice(0, 10);
+      results.innerHTML = matches.map(f =>
+        `<li><button type="button" onclick="addFlag('${f}')">${f}</button></li>`
+      ).join('');
+    });
+
+    document.querySelectorAll('#flag-form input[type=checkbox]').forEach(cb => cb.addEventListener('change', syncApplyFlags));
+    syncApplyFlags();
+
+    document.addEventListener('keydown', function (e) {
+      if (document.activeElement === document.getElementById('flag-search')) return;
+      if (e.key === 'j') document.querySelector('form[action*="/apply"]').submit();
+    });
+
+    async function analyzeEpisodes() {
+      const btn = document.getElementById('analyze-btn');
+      const results = document.getElementById('analyze-results');
+      btn.disabled = true;
+      btn.textContent = 'Analyzing…';
+      results.hidden = true;
+
+      try {
+        const resp = await fetch('/api/show/{{ show.id }}/language-analysis');
+        const data = await resp.json();
+
+        if (!data.length) {
+          results.innerHTML = '<p>No audio language data found in episodes.</p>';
+          results.hidden = false;
+          return;
+        }
+
+        let html = '<table><thead><tr><th>Language</th><th>Episodes</th></tr></thead><tbody>';
+        for (const item of data) {
+          html += `<tr><td>${item.language}</td><td>${item.count} (${item.pct}%)</td></tr>`;
+        }
+        html += '</tbody></table>';
+        results.innerHTML = html;
+        results.hidden = false;
+
+        for (const item of data) {
+          if (item.flag && KNOWN_FLAGS.includes(item.flag)) {
+            addFlag(item.flag);
+          }
+        }
+        refreshPreview();
+      } catch (e) {
+        results.innerHTML = '<p>Analysis failed.</p>';
+        results.hidden = false;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Analyze episodes';
+      }
+    }
+  </script>
+</body>
+</html>
