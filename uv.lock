@@ -294,7 +294,7 @@ wheels = [
 
 [[package]]
 name = "jellyfin-flag-setter"
-version = "2026.4.11"
+version = "2026.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "bcrypt" },
