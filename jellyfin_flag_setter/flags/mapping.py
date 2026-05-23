@@ -15,21 +15,25 @@ PRIORITY_FLAGS = ["es"]
 FLAGS_DIR = Path(__file__).parent.parent.parent / "flags"
 
 
-def languages_to_flags(language_codes: list[str]) -> list[str]:
-    """Map a list of ISO 639-2 language codes to deduplicated, ordered flag codes."""
+def languages_to_flags(
+    language_codes: list[str],
+    mappings: list[tuple[str, str]] | None = None,
+) -> list[str]:
+    """Map a list of ISO 639-2 language codes to deduplicated, ordered flag codes.
+
+    Order and priority are determined by the position in `mappings` (or the
+    hardcoded defaults when None).  The first entry has the highest priority.
+    """
+    if mappings is None:
+        mappings = list(LANGUAGE_TO_FLAG.items())
+    language_set = set(language_codes)
     seen: set[str] = set()
-    flags: list[str] = []
-
-    for lang in language_codes:
-        flag = LANGUAGE_TO_FLAG.get(lang)
-        if flag and flag not in seen:
+    result: list[str] = []
+    for lang, flag in mappings:
+        if lang in language_set and flag not in seen:
             seen.add(flag)
-            flags.append(flag)
-
-    # Move priority flags to the front, preserving their relative order
-    priority = [f for f in PRIORITY_FLAGS if f in seen]
-    rest = [f for f in flags if f not in set(PRIORITY_FLAGS)]
-    return priority + rest
+            result.append(flag)
+    return result
 
 
 KNOWN_FLAGS: list[str] = list(

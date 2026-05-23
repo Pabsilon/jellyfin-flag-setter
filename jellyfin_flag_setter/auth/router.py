@@ -86,7 +86,6 @@ async def settings_page(
     current_user: User = Depends(get_current_user),
 ):
     jobs = request.app.state.job_manager.list_statuses()
-    libraries = request.app.state.libraries
     return templates.TemplateResponse(
         request,
         "settings.html",
@@ -95,7 +94,8 @@ async def settings_page(
             "success": None,
             "error": None,
             "jobs": jobs,
-            "libraries": libraries,
+            "libraries": request.app.state.libraries,
+            "language_mappings": request.app.state.language_mappings,
         },
     )
 
@@ -110,56 +110,30 @@ async def change_password(
     session: Session = Depends(get_session),
 ):
     jobs = request.app.state.job_manager.list_statuses()
+    lang_mappings = request.app.state.language_mappings
+
+    def _render(error=None, success=None, status_code=200):
+        return templates.TemplateResponse(
+            request,
+            "settings.html",
+            {
+                "user": current_user,
+                "error": error,
+                "success": success,
+                "jobs": jobs,
+                "libraries": request.app.state.libraries,
+                "language_mappings": lang_mappings,
+            },
+            status_code=status_code,
+        )
+
     if not verify_password(current_password, current_user.hashed_password):
-        return templates.TemplateResponse(
-            request,
-            "settings.html",
-            {
-                "user": current_user,
-                "error": "Current password is incorrect",
-                "success": None,
-                "jobs": jobs,
-                "libraries": request.app.state.libraries,
-            },
-            status_code=400,
-        )
+        return _render(error="Current password is incorrect", status_code=400)
     if new_password != new_password_confirm:
-        return templates.TemplateResponse(
-            request,
-            "settings.html",
-            {
-                "user": current_user,
-                "error": "New passwords do not match",
-                "success": None,
-                "jobs": jobs,
-                "libraries": request.app.state.libraries,
-            },
-            status_code=400,
-        )
+        return _render(error="New passwords do not match", status_code=400)
     if len(new_password) < 8:
-        return templates.TemplateResponse(
-            request,
-            "settings.html",
-            {
-                "user": current_user,
-                "error": "Password must be at least 8 characters",
-                "success": None,
-                "jobs": jobs,
-                "libraries": request.app.state.libraries,
-            },
-            status_code=400,
-        )
+        return _render(error="Password must be at least 8 characters", status_code=400)
     current_user.hashed_password = hash_password(new_password)
     session.add(current_user)
     session.commit()
-    return templates.TemplateResponse(
-        request,
-        "settings.html",
-        {
-            "user": current_user,
-            "success": "Password updated successfully",
-            "error": None,
-            "jobs": jobs,
-            "libraries": request.app.state.libraries,
-        },
-    )
+    return _render(success="Password updated successfully")

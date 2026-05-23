@@ -1,11 +1,25 @@
 from datetime import UTC, datetime
 
 from sqlalchemy import delete
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from jellyfin_flag_setter.jellyfin.models import MediaStream, MovieItem
 
-from .models import DBLibrary, DBMediaItem, DBMediaStream, LibraryWithItems
+from .models import (
+    DBLanguageMapping,
+    DBLibrary,
+    DBMediaItem,
+    DBMediaStream,
+    LibraryWithItems,
+)
+
+DEFAULT_LANGUAGE_MAPPINGS: list[tuple[str, str]] = [
+    ("spa", "es"),
+    ("eng", "gb"),
+    ("fra", "fr"),
+    ("deu", "de"),
+    ("jpn", "jp"),
+]
 
 
 def load_libraries(session: Session) -> list[LibraryWithItems] | None:
@@ -149,6 +163,22 @@ def set_library_excluded(session: Session, library_id: str, excluded: bool) -> b
     session.add(lib)
     session.commit()
     return True
+
+
+def load_language_mappings(session: Session) -> list[tuple[str, str]]:
+    rows = session.exec(
+        select(DBLanguageMapping).order_by(col(DBLanguageMapping.position))
+    ).all()
+    if not rows:
+        return list(DEFAULT_LANGUAGE_MAPPINGS)
+    return [(r.language_code, r.flag_code) for r in rows]
+
+
+def save_language_mappings(session: Session, mappings: list[tuple[str, str]]) -> None:
+    session.exec(delete(DBLanguageMapping))
+    for i, (lang, flag) in enumerate(mappings):
+        session.add(DBLanguageMapping(position=i, language_code=lang, flag_code=flag))
+    session.commit()
 
 
 def update_edited_flags(session: Session, edited_map: dict[str, bool]) -> None:

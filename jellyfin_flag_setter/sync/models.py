@@ -38,6 +38,14 @@ class DBMediaStream(SQLModel, table=True):
     codec: str | None = None
 
 
+class DBLanguageMapping(SQLModel, table=True):
+    __tablename__ = "language_mapping"
+
+    position: int = Field(primary_key=True)
+    language_code: str  # ISO 639-2, e.g. "eng"
+    flag_code: str  # ISO 3166-1 alpha-2, e.g. "gb"
+
+
 @dataclass
 class LibraryWithItems:
     id: str

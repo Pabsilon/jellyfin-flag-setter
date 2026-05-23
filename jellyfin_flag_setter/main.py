@@ -23,21 +23,18 @@ from jellyfin_flag_setter.auth.models import ServerConfig, User
 from jellyfin_flag_setter.auth.router import router as auth_router
 from jellyfin_flag_setter.config import settings
 from jellyfin_flag_setter.flags.composer import compose_flags, is_edited, mark_as_edited
-from jellyfin_flag_setter.flags.mapping import (
-    ALL_FLAGS,
-    KNOWN_FLAGS,
-    LANGUAGE_TO_FLAG,
-    languages_to_flags,
-)
+from jellyfin_flag_setter.flags.mapping import ALL_FLAGS, flag_path, languages_to_flags
 from jellyfin_flag_setter.jellyfin.client import JellyfinClient
 from jellyfin_flag_setter.jellyfin.models import MovieItem
 from jellyfin_flag_setter.jobs.router import router as jobs_router
 from jellyfin_flag_setter.jobs.runner import JobManager
 from jellyfin_flag_setter.sync.models import LibraryWithItems
 from jellyfin_flag_setter.sync.store import (
+    load_language_mappings,
     load_libraries,
     mark_item_edited,
     mark_item_unedited,
+    save_language_mappings,
     save_libraries,
     set_library_excluded,
     upsert_items,
@@ -249,6 +246,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     app.state.jellyfin = None
     app.state.libraries = []
 
+    with Session(get_engine()) as session:
+        app.state.language_mappings = load_language_mappings(session)
+
     job_manager = JobManager()
     app.state.job_manager = job_manager
     job_manager.start(get_engine())
@@ -281,6 +281,7 @@ if not settings.secret_key:
 app.add_middleware(SessionMiddleware, secret_key=_secret_key)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/flags", StaticFiles(directory="flags"), name="flags")
 app.include_router(auth_router)
 app.include_router(jobs_router)
 templates = Jinja2Templates(directory="templates")
@@ -347,6 +348,67 @@ async def set_excluded(
         if lib.id == library_id:
             lib.is_excluded = excluded
             break
+    return JSONResponse({"ok": True})
+
+
+@app.get("/api/languages")
+async def get_languages(request: Request, _: User = Depends(get_current_user)):
+    return JSONResponse(
+        [
+            {"language_code": lc, "flag_code": fc}
+            for lc, fc in request.app.state.language_mappings
+        ]
+    )
+
+
+@app.post("/api/languages")
+async def add_language(
+    request: Request,
+    language_code: str = Form(),
+    flag_code: str = Form(),
+    _: User = Depends(get_current_user),
+):
+    language_code = language_code.strip().lower()
+    flag_code = flag_code.strip().lower()
+    mappings: list[tuple[str, str]] = list(request.app.state.language_mappings)
+    if any(lc == language_code for lc, _ in mappings):
+        return JSONResponse({"error": "language already mapped"}, status_code=400)
+    if not flag_path(flag_code).exists():
+        return JSONResponse({"error": "unknown flag code"}, status_code=400)
+    mappings.append((language_code, flag_code))
+    with Session(get_engine()) as session:
+        save_language_mappings(session, mappings)
+    request.app.state.language_mappings = mappings
+    return JSONResponse(
+        {"ok": True, "language_code": language_code, "flag_code": flag_code}
+    )
+
+
+@app.delete("/api/languages/{language_code}")
+async def delete_language(
+    request: Request,
+    language_code: str,
+    _: User = Depends(get_current_user),
+):
+    mappings = [
+        (lc, fc)
+        for lc, fc in request.app.state.language_mappings
+        if lc != language_code
+    ]
+    with Session(get_engine()) as session:
+        save_language_mappings(session, mappings)
+    request.app.state.language_mappings = mappings
+    return JSONResponse({"ok": True})
+
+
+@app.post("/api/languages/reorder")
+async def reorder_languages(request: Request, _: User = Depends(get_current_user)):
+    ordered_codes: list[str] = await request.json()
+    current = dict(request.app.state.language_mappings)
+    mappings = [(code, current[code]) for code in ordered_codes if code in current]
+    with Session(get_engine()) as session:
+        save_language_mappings(session, mappings)
+    request.app.state.language_mappings = mappings
     return JSONResponse({"ok": True})
 
 
@@ -474,8 +536,10 @@ async def movie_preview(
         next_id = None
 
     audio_streams = [s for s in movie.media_streams if s.type == "Audio"]
-    proposed_flags = languages_to_flags(_audio_languages(movie))
+    lang_mappings = request.app.state.language_mappings
+    proposed_flags = languages_to_flags(_audio_languages(movie), lang_mappings)
     preview_qs = "&".join(f"flags={f}" for f in proposed_flags)
+    known_flags = list(dict.fromkeys(fc for _, fc in lang_mappings))
     return templates.TemplateResponse(
         request,
         "preview.html",
@@ -483,7 +547,7 @@ async def movie_preview(
             "movie": movie,
             "audio_streams": audio_streams,
             "proposed_flags": proposed_flags,
-            "known_flags": KNOWN_FLAGS,
+            "known_flags": known_flags,
             "all_flags": ALL_FLAGS,
             "preview_qs": preview_qs,
             "next_id": next_id,
@@ -575,11 +639,12 @@ async def show_language_analysis(
         }
         lang_counts.update(ep_langs)
 
+    lang_to_flag = dict(request.app.state.language_mappings)
     total = len(episodes)
     results = [
         {
             "language": lang,
-            "flag": LANGUAGE_TO_FLAG.get(lang),
+            "flag": lang_to_flag.get(lang),
             "count": count,
             "pct": round(count / total * 100),
         }
@@ -630,7 +695,9 @@ async def show_preview(
         "show_preview.html",
         {
             "show": show,
-            "known_flags": KNOWN_FLAGS,
+            "known_flags": list(
+                dict.fromkeys(fc for _, fc in request.app.state.language_mappings)
+            ),
             "all_flags": ALL_FLAGS,
             "next_id": next_id,
             "library": library,

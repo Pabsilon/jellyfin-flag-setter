@@ -21,6 +21,7 @@
   <div class="settings-tabs">
     <button class="tab-btn active" data-tab="jobs">Jobs</button>
     <button class="tab-btn" data-tab="server">Server Management</button>
+    <button class="tab-btn" data-tab="languages">Languages</button>
     <button class="tab-btn" data-tab="account">Account</button>
   </div>
 
@@ -75,6 +76,34 @@
     </details>
   </div>
 
+  <!-- Languages tab -->
+  <div class="tab-panel" data-panel="languages" hidden>
+    <div id="lang-list"></div>
+
+    <div class="job-card">
+      <div class="job-header"><span class="job-label">Add language</span></div>
+      <div class="job-controls">
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;">
+          <div class="form-group" style="margin:0;">
+            <label for="lang-add-code">Language code (ISO 639-2)</label>
+            <input id="lang-add-code" type="text" maxlength="3" placeholder="e.g. por" style="width:7rem;">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label for="lang-add-flag">Flag code (ISO 3166-1)</label>
+            <div style="display:flex;gap:0.4rem;align-items:center;">
+              <input id="lang-add-flag" type="text" maxlength="4" placeholder="e.g. pt" style="width:5rem;">
+              <img id="lang-add-flag-preview" src="" alt="" width="28" height="20" style="display:none;border:1px solid #ccc;border-radius:2px;">
+            </div>
+          </div>
+        </div>
+        <div class="apply-bar" style="margin-top:0.6rem;">
+          <button id="lang-add-btn">Add</button>
+        </div>
+        <div id="lang-add-feedback" class="job-feedback" hidden></div>
+      </div>
+    </div>
+  </div>
+
   <!-- Account tab -->
   <div class="tab-panel" data-panel="account" hidden>
     {% if error %}
@@ -106,7 +135,7 @@
   <script>
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabPanels = document.querySelectorAll('.tab-panel');
-    const VALID_TABS = ['jobs', 'server', 'account'];
+    const VALID_TABS = ['jobs', 'server', 'languages', 'account'];
 
     function switchTab(name) {
       if (!VALID_TABS.includes(name)) name = 'jobs';
@@ -178,6 +207,103 @@
     });
 
     pollJobs();
+
+    // --- Language mappings ---
+    let langMappings = {{ language_mappings | tojson }};
+
+    function renderLangMappings() {
+      const list = document.getElementById('lang-list');
+      list.innerHTML = '';
+      if (!langMappings.length) {
+        list.innerHTML = '<p style="color:#888;padding:0.5rem 0;">No language mappings configured.</p>';
+        return;
+      }
+      langMappings.forEach(([lang, flag], i) => {
+        const card = document.createElement('div');
+        card.className = 'job-card';
+        card.innerHTML = `
+          <div class="job-header" style="gap:0.6rem;">
+            <img src="/flags/${flag}.png" width="28" height="20" style="border:1px solid #ccc;border-radius:2px;flex-shrink:0;" alt="${flag}">
+            <span class="job-label">${lang}</span>
+            <span class="job-status-text">→ ${flag}</span>
+          </div>
+          <div class="job-controls">
+            <div class="apply-bar">
+              <button class="btn-secondary lang-up" data-i="${i}" ${i === 0 ? 'disabled' : ''}>↑</button>
+              <button class="btn-secondary lang-down" data-i="${i}" ${i === langMappings.length - 1 ? 'disabled' : ''}>↓</button>
+              <button class="btn-secondary lang-del" data-lang="${lang}" style="margin-left:auto;">Remove</button>
+            </div>
+          </div>`;
+        list.appendChild(card);
+      });
+
+      list.querySelectorAll('.lang-up').forEach(btn =>
+        btn.addEventListener('click', () => moveLang(+btn.dataset.i, -1)));
+      list.querySelectorAll('.lang-down').forEach(btn =>
+        btn.addEventListener('click', () => moveLang(+btn.dataset.i, 1)));
+      list.querySelectorAll('.lang-del').forEach(btn =>
+        btn.addEventListener('click', () => deleteLang(btn.dataset.lang)));
+    }
+
+    async function moveLang(i, dir) {
+      const j = i + dir;
+      if (j < 0 || j >= langMappings.length) return;
+      [langMappings[i], langMappings[j]] = [langMappings[j], langMappings[i]];
+      renderLangMappings();
+      await fetch('/api/languages/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(langMappings.map(([lc]) => lc)),
+      });
+    }
+
+    async function deleteLang(langCode) {
+      const resp = await fetch(`/api/languages/${langCode}`, { method: 'DELETE' });
+      if (resp.ok) {
+        langMappings = langMappings.filter(([lc]) => lc !== langCode);
+        renderLangMappings();
+      }
+    }
+
+    document.getElementById('lang-add-flag').addEventListener('input', e => {
+      const code = e.target.value.trim().toLowerCase();
+      const preview = document.getElementById('lang-add-flag-preview');
+      if (code.length >= 2) {
+        preview.src = `/flags/${code}.png`;
+        preview.style.display = 'inline';
+        preview.onerror = () => { preview.style.display = 'none'; };
+      } else {
+        preview.style.display = 'none';
+      }
+    });
+
+    document.getElementById('lang-add-btn').addEventListener('click', async () => {
+      const langCode = document.getElementById('lang-add-code').value.trim().toLowerCase();
+      const flagCode = document.getElementById('lang-add-flag').value.trim().toLowerCase();
+      const feedback = document.getElementById('lang-add-feedback');
+      if (!langCode || !flagCode) return;
+      const data = new FormData();
+      data.append('language_code', langCode);
+      data.append('flag_code', flagCode);
+      const resp = await fetch('/api/languages', { method: 'POST', body: data });
+      const body = await resp.json();
+      if (resp.ok) {
+        langMappings.push([body.language_code, body.flag_code]);
+        renderLangMappings();
+        document.getElementById('lang-add-code').value = '';
+        document.getElementById('lang-add-flag').value = '';
+        document.getElementById('lang-add-flag-preview').style.display = 'none';
+        feedback.textContent = 'Language added.';
+        feedback.className = 'job-feedback form-success';
+      } else {
+        feedback.textContent = body.error || 'Failed to add.';
+        feedback.className = 'job-feedback form-error';
+      }
+      feedback.hidden = false;
+      setTimeout(() => { feedback.hidden = true; }, 4000);
+    });
+
+    renderLangMappings();
 
     document.querySelectorAll('.lib-exclude-btn').forEach(btn => {
       btn.addEventListener('click', async () => {
