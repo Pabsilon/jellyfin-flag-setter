@@ -459,8 +459,15 @@ async def movie_preview(
     if library:
         lib_ids = [m.id for m in library.items]
         try:
-            idx = lib_ids.index(item_id)
-            next_id = lib_ids[idx + 1] if idx + 1 < len(lib_ids) else None
+            current_idx = lib_ids.index(item_id)
+            next_id = next(
+                (
+                    m.id
+                    for m in library.items[current_idx + 1 :]
+                    if m.id not in library.edited_item_ids
+                ),
+                None,
+            )
         except ValueError:
             next_id = None
     else:
@@ -604,8 +611,15 @@ async def show_preview(
     if library:
         lib_ids = [m.id for m in library.items]
         try:
-            idx = lib_ids.index(item_id)
-            next_id = lib_ids[idx + 1] if idx + 1 < len(lib_ids) else None
+            current_idx = lib_ids.index(item_id)
+            next_id = next(
+                (
+                    m.id
+                    for m in library.items[current_idx + 1 :]
+                    if m.id not in library.edited_item_ids
+                ),
+                None,
+            )
         except ValueError:
             next_id = None
     else:
