@@ -141,6 +141,14 @@ def test_movie_next_id_points_to_immediate_successor_when_unedited(movie_client)
     assert b'value="m2"' in resp.content
 
 
+def test_movie_next_id_wraps_around_when_last_item_edited_first(movie_client):
+    """Editing the last item first should surface earlier unedited items, not "done"."""
+    resp = movie_client.get("/movie/m3")
+
+    assert resp.status_code == 200
+    assert b'value="m1"' in resp.content
+
+
 # --- show tests ---
 
 
@@ -160,3 +168,10 @@ def test_show_next_id_is_none_when_all_remaining_edited(show_client):
 
     assert resp.status_code == 200
     assert b'name="next_id"' not in resp.content
+
+
+def test_show_next_id_wraps_around_when_last_item_edited_first(show_client):
+    resp = show_client.get("/show/s3")
+
+    assert resp.status_code == 200
+    assert b'value="s1"' in resp.content

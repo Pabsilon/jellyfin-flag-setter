@@ -443,6 +443,16 @@ def _audio_languages(movie) -> list[str]:
     return [s.language for s in movie.media_streams if s.type == "Audio" and s.language]
 
 
+def _next_unedited_id(library: LibraryWithItems, current_idx: int) -> str | None:
+    items = library.items
+    n = len(items)
+    for offset in range(1, n):
+        candidate = items[(current_idx + offset) % n]
+        if candidate.id not in library.edited_item_ids:
+            return candidate.id
+    return None
+
+
 @app.get("/")
 async def index(request: Request, current_user: User = Depends(get_current_user)):
     return templates.TemplateResponse(
@@ -522,14 +532,7 @@ async def movie_preview(
         lib_ids = [m.id for m in library.items]
         try:
             current_idx = lib_ids.index(item_id)
-            next_id = next(
-                (
-                    m.id
-                    for m in library.items[current_idx + 1 :]
-                    if m.id not in library.edited_item_ids
-                ),
-                None,
-            )
+            next_id = _next_unedited_id(library, current_idx)
         except ValueError:
             next_id = None
     else:
@@ -677,14 +680,7 @@ async def show_preview(
         lib_ids = [m.id for m in library.items]
         try:
             current_idx = lib_ids.index(item_id)
-            next_id = next(
-                (
-                    m.id
-                    for m in library.items[current_idx + 1 :]
-                    if m.id not in library.edited_item_ids
-                ),
-                None,
-            )
+            next_id = _next_unedited_id(library, current_idx)
         except ValueError:
             next_id = None
     else:
