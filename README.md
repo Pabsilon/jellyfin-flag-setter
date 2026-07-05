@@ -1,15 +1,15 @@
 # Jellyfin Flag Setter
 
-This is an experimental flag setter for jellyfin posters. Please use with caution. I am not responsible if you break your jellyfin instance.
+This is a flag setter for jellyfin posters. Please use with caution since it runs destructive jobs against your posters.
 
 ### Current known issues
-- The jobs are 'too aggressive' and might kill responsiveness of the server while running
+- None that I know of. PLease report any issues.
 
 # 🤖 Disclaimer
 
-This project was 100% vibecoded using Claude Code with Sonnet 4.6 & Opus 4.7.
+This project was 100% vibecoded using Claude Code with Sonnet 4.6 & Opus 4.7 under my supervision.
 
-I am a full time back-end developper and I wanted to see how far these tools have come.
+I am a full time back-end developper and I wanted to see how far these tools have come. They're doing pretty good if you ask me.
 
 # Project Info
 
@@ -17,10 +17,10 @@ I am a full time back-end developper and I wanted to see how far these tools hav
 
 It features:
 
-- Automatic mapping from Audio metadata to flags (Still Work in Progress)
-- A local database that keeps track of edited files
-- Metadata to actually know if the file was edited or not
-- Two sync jobs (Recently added / Full Scan)
+- Automatic mapping from Audio metadata to flags (languages - flag mappings can be configured).
+- A local database that keeps track of edited files (the daily job does a deep scan and finds any posters that are reverted).
+- Metadata edition to actually know if the file was edited or not.
+- Two sync jobs (Recently added (15min)/ Full Scan (24h)) with configurable schedules.
 
 ----
 
@@ -29,10 +29,10 @@ It features:
 ![Jobs](.github/images/jobs.png)
 
 ### Library Sync
-This is a job that runs once every 24h and fetches all images to update their status
+This is a job that runs once every 24h and fetches all images to update their status.
 
 ### Recent Sync
-The recent sync job runs by default every 15 minutes to scan for recently added media
+The recent sync job runs by default every 15 minutes to scan for recently added media.
 
 ------------
 
