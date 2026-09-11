@@ -1,3 +1,10 @@
+# On the archivation of this project
+
+This project was my way of working around Jellyfin's lack of search by audio language. Ever since the release of v12.0 of jellyfin, this is now achievable and the project loses it's main appeal to me.
+I understand that it could be used to tag thinks like 4k movies, HDR, etc.. , and that in general someone could find a use for it. You are more than welcome to fork and take over, or just reimplement the general idea.
+
+As a side-note; this is NOT copatible with Jellyfin v12.0 or higher, so it does need some changes.
+
 # Jellyfin Flag Setter
 
 This is a flag setter for jellyfin posters. Please use with caution since it runs destructive jobs against your posters.
